@@ -28,16 +28,17 @@ RUN mkdir -p /app
 # プロジェクトファイルをコピー (プロジェクトルートからの相対パスに変更)
 COPY infra/batch/src/pyproject.toml infra/batch/src/poetry.lock infra/batch/src/README.md /app/
 
-# 依存関係のインストール (awa-batch-template パッケージを含む)
-# poetry install は pyproject.toml に基づいて git clone も実行する
-# --no-root オプションを追加して、現在のプロジェクトのインストールをスキップ
-RUN poetry install --no-interaction --no-ansi --no-root
+# 依存関係のインストール (ローカルの awa-batch-processor パッケージを含む)
+# --no-root オプションは不要 (runner自体はパッケージではないため)
+RUN poetry install --no-interaction --no-ansi
 
 # 実行スクリプトをコピー (プロジェクトルートからの相対パスに変更)
 COPY infra/batch/src/run_batch.py /app/run_batch.py
 
-# 環境変数の設定 (PYTHONPATHは不要になる可能性が高い)
+# データファイルをコピー (プロジェクトルートからの相対パス)
+COPY data/sample1_data.csv /app/data/sample1_data.csv
 
+# 環境変数の設定 (PYTHONPATH=/app のみで良いはず)
 ENV PYTHONPATH=/app
 
 # 新しいスクリプトを実行するようにENTRYPOINTを変更

@@ -1,30 +1,25 @@
 import os
 import sys
 
-# Assuming the package installed via poetry from the git repo is named 'awa_batch_processor'
-# and its structure allows importing like this.
-# This requires the src directory to be importable as 'awa_batch_processor'.
-# We might need to adjust pyproject.toml's package definition if it's just `src`.
-# Import from the installed package (name defined in the library's pyproject.toml, assumed 'awa_batch_processor')
-# Note: The actual import path depends on how the library exposes its modules.
-# Assuming the library's pyproject.toml defines the package name as 'awa_batch_processor'
-# and the structure is src/awa_batch_processor/... or similar.
-# Import from the installed git dependency 'awa-batch-processor'
-# The actual import name depends on the package structure in the git repo,
-# assuming it's 'awa_batch_processor' based on the key in pyproject.toml.
-from awa_batch_processor.config import load_config_from_env
-from awa_batch_processor.main import sample1
-from awa_batch_processor.models import Sample1Params
+# Import explicitly from the installed 'awa-batch-processor' package
+# Assuming the package structure allows importing from 'awa_batch_processor.src'
+from awa_batch_processor.src.main import sample1  # type: ignore
+from awa_batch_processor.src.models import Sample1Params  # type: ignore
+from awa_batch_processor.src.config import load_config_from_env # 再度追加 # type: ignore
 
 
 def main():
     """
     AWS Batch実行用スクリプト。
     環境変数から設定を読み込み、sample1コマンドを実行する。
+    (ローカル実行は poetry run cli を使用)
     """
     print("Starting batch execution using installed package...")
+
     try:
-        # Load configuration from environment variables (expects PROCESS_ID and CSV_PATH env vars)
+        # 環境変数から設定を読み込む
+        # Sample1Paramsに必要な環境変数が設定されていることを期待する
+        # (例: PROCESS_ID, CSV_PATH など)
         params = load_config_from_env(Sample1Params)
         print("Configuration loaded from environment variables.")
 
@@ -33,7 +28,7 @@ def main():
         sample1(params)
         print("sample1 function completed.")
 
-    except ValueError as e:
+    except ValueError as e: # Pydantic validation error or load_config_from_env error
         print(f"Configuration or validation error: {e}", file=sys.stderr)
         sys.exit(1)
     except Exception as e:

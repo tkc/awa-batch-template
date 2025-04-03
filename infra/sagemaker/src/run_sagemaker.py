@@ -8,9 +8,11 @@ import glob
 # 実際のインポート名は git リポジトリ内のパッケージ構造に依存するが、
 # ここでは pyproject.toml のキー名と同じ 'awa_batch_processor' と仮定する
 # (もし違えば ModuleNotFoundError が発生するので、その際に修正する)
-from awa_batch_processor.config import load_config_from_file
-from awa_batch_processor.main import sample1
-from awa_batch_processor.models import Sample1Params
+# Based on the root pyproject.toml (packages = [{include = "src"}]),
+# the top-level package name for imports is 'src'.
+from src.config import load_config_from_file
+from src.main import sample1
+from src.models import Sample1Params
 
 def find_config_file(config_dir):
     """Finds the first .json file in the specified directory."""

@@ -1,6 +1,6 @@
 [tool.poetry]
-name = "awa-batch-processor"
-version = "0.1.0"
+name = "awa_batch_processor"
+version = "0.3.0"
 description = "AWS Batch processor template with multiple commands"
 authors = ["Your Name <your.email@example.com>"]
 readme = "README.md"

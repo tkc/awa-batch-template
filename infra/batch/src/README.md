@@ -1,144 +1,20 @@
-# AWS Batch 実行ガイド
+# AWS Batch Runner (`run_batch.py`)
 
-このドキュメントは、AWS Batch 環境でデータ処理ジョブを実行するためのガイドラインを提供します。
+このディレクトリには、AWS Batch ジョブのコンテナエントリーポイントとして機能するスクリプト (`run_batch.py`) が含まれています。このスクリプトは、`awa-batch-processor` ライブラリ（メインプロジェクト）の `sample1` 処理を実行します。
 
-## 概要
+**重要:** このスクリプト (`run_batch.py`) は、AWS Batch 環境での実行専用に設計されており、パラメータを **環境変数** から読み込みます。ローカルでのテストや実行には、プロジェクトルートのメイン CLI (`poetry run cli sample1 ...`) を使用してください。
 
-このディレクトリには、AWS Batch 環境でデータ処理ジョブを実行するためのコンポーネントが含まれています：
+## AWS Batch での実行
 
-- `run_batch.py`: AWS Batch ジョブのエントリーポイントスクリプト。環境変数から設定を読み込み、インストールされた `awa_batch_processor` パッケージの `sample1` コマンドを実行します。
-- `pyproject.toml`: AWS Batch 実行環境用の Poetry 設定ファイル。メインプロジェクトを Git 依存関係としてインストールするよう定義されています。
-- `poetry.lock`: 依存関係のロックファイル。
+AWS Batch でジョブを実行する際、この `run_batch.py` スクリプトが Docker コンテナ (`infra/batch/docker/Dockerfile` でビルド) 内で実行されます。
 
-## セットアップ
+スクリプトは、`awa_batch_processor.src.models.Sample1Params` モデルで定義されたフィールドに対応する環境変数からパラメータを読み込みます (`load_config_from_env` を使用)。例えば、`Sample1Params` に `process_id` と `csv_path` フィールドがある場合、コンテナには `PROCESS_ID` と `CSV_PATH` という環境変数を設定する必要があります。
 
-### Docker イメージのビルド
+- **`PROCESS_ID`**: 処理を識別するための任意の ID（例: `batch-job-123`）。
+- **`CSV_PATH`**: コンテナ内の処理対象 CSV ファイルへのフルパス（例: `/app/data/sample1_data.csv`）。Dockerfile でデータがどのようにコピーされるかを確認してください。
 
-AWS Batch で使用する Docker イメージは、`infra/batch/docker/Dockerfile` を使用してビルドします。ビルドコンテキストは **プロジェクトのルートディレクトリ** から行うことが重要です：
+必要な環境変数は `src/models.py` の `Sample1Params` の定義によって決まります。大文字・小文字は区別され、環境変数名がモデルのフィールド名に対応します。
 
-```bash
-# プロジェクトルートディレクトリで実行
-docker build -t your-ecr-repo/batch-processor:latest -f infra/batch/docker/Dockerfile .
+## 依存関係
 
-# イメージをECRにプッシュ
-aws ecr get-login-password --region YOUR_REGION | docker login --username AWS --password-stdin YOUR_ACCOUNT_ID.dkr.ecr.YOUR_REGION.amazonaws.com
-docker tag your-ecr-repo/batch-processor:latest YOUR_ACCOUNT_ID.dkr.ecr.YOUR_REGION.amazonaws.com/your-ecr-repo:latest
-docker push YOUR_ACCOUNT_ID.dkr.ecr.YOUR_REGION.amazonaws.com/your-ecr-repo:latest
-```
-
-### インフラストラクチャのセットアップ
-
-AWS Batch 実行環境は Terraform を使用して構築できます：
-
-```bash
-cd infra/batch/terraform
-terraform init
-terraform apply
-```
-
-## パラメータ設定
-
-AWS Batch ジョブのパラメータは、以下の方法で設定できます：
-
-1. **環境変数**: ジョブ送信時に `--container-overrides` の `environment` で指定します。
-
-   主な環境変数：
-   - `CONFIG_FILE`: 設定ファイルのパス（S3など）
-   - `AWS_REGION`: AWSリージョン
-   - `LOG_LEVEL`: ログレベル（INFO、DEBUG、WARNINGなど）
-
-2. **設定ファイル**: S3バケットにJSON形式の設定ファイルを配置し、`CONFIG_FILE`環境変数で参照します。  
-   設定ファイルの形式は以下の例の通りです：
-
-   ```json
-   {
-     "input_file": "s3://your-bucket/input/sample_data.csv",
-     "output_file": "s3://your-bucket/output/result.csv",
-     "validate_only": false
-   }
-   ```
-
-## AWS Batch ジョブの実行
-
-### AWS コンソールからの実行
-
-1. AWS Management Console にログイン
-2. AWS Batch サービスに移動
-3. 「ジョブ」→「ジョブの送信」を選択
-4. ジョブ定義とジョブキューを選択
-5. 「コンテナオーバーライド」セクションで環境変数を指定
-
-### AWS CLI からの実行
-
-```bash
-aws batch submit-job \
-    --job-name "sample1-batch-job" \
-    --job-queue "your-job-queue-name" \
-    --job-definition "your-batch-job-definition" \
-    --container-overrides '{
-        "environment": [
-            {"name": "CONFIG_FILE", "value": "s3://your-bucket/config/params.json"},
-            {"name": "LOG_LEVEL", "value": "INFO"}
-        ]
-    }'
-```
-
-### AWS SDK (Python) からの実行
-
-```python
-import boto3
-
-batch_client = boto3.client('batch')
-
-response = batch_client.submit_job(
-    jobName='sample1-batch-job',
-    jobQueue='your-job-queue-name',
-    jobDefinition='your-batch-job-definition',
-    containerOverrides={
-        'environment': [
-            {'name': 'CONFIG_FILE', 'value': 's3://your-bucket/config/params.json'},
-            {'name': 'LOG_LEVEL', 'value': 'INFO'}
-        ]
-    }
-)
-
-print(f"Job submitted with ID: {response['jobId']}")
-```
-
-## ログとモニタリング
-
-AWS Batch ジョブのログは CloudWatch Logs に保存されます。ログを確認するには：
-
-1. AWS Management Console で CloudWatch サービスに移動
-2. 「ロググループ」を選択
-3. AWS Batch のロググループ（通常は `/aws/batch/job`）を選択
-4. 該当するジョブIDのログストリームを選択
-
-## エラーハンドリング
-
-`run_batch.py` は以下のようなエラーハンドリングを実装しています：
-
-- 設定読み込みエラー: 環境変数からの設定読み込みに失敗した場合、エラーメッセージと共に終了コード 1 で終了
-- 検証エラー: スキーマ検証などに失敗した場合、エラーメッセージと共に終了コード 1 で終了
-- 予期しないエラー: その他の例外が発生した場合、エラーメッセージと共に終了コード 1 で終了
-
-エラーメッセージは CloudWatch Logs で確認できます。
-
-## 依存関係の更新
-
-このプロジェクトは Git リポジトリからメインコードを依存関係としてインストールします。依存関係のバージョンを更新するには、`pyproject.toml` の `rev` パラメータを変更します：
-
-```toml
-[tool.poetry.dependencies]
-awa-batch-processor = { git = "https://github.com/tkc/awa-batch-template.git", rev = "v0.0.2" }
-```
-
-更新後は Docker イメージを再ビルドしてデプロイする必要があります。
-
-## ベストプラクティス
-
-- **冪等性の確保**: 処理ロジックは複数回実行しても安全なように設計する
-- **適切なリソース割り当て**: ジョブ定義で適切なCPU/メモリを設定する
-- **タイムアウト設定**: 長時間実行されるジョブには適切なタイムアウトを設定する
-- **再試行戦略**: 一時的な障害の場合は自動再試行を設定する
-- **十分なログ出力**: デバッグ用に詳細なログを出力する
+このスクリプトは、Docker イメージビルド時に `awa-batch-processor` パッケージ（メインプロジェクトの `src` ディレクトリからビルドされたもの）がインストールされていることを前提としています。これは `infra/batch/src/pyproject.toml` の git 依存関係として定義されています。
