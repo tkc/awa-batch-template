@@ -8,7 +8,7 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.11" # Match the Dockerfile base image python version
-awa-batch-processor = { git = "https://github.com/tkc/awa-batch-template.git", rev = "v0.0.2" } # Changed key to match package name
+awa_batch_processor = { git = "https://github.com/tkc/awa-batch-template.git", rev = "v0.0.3" } # Changed key to match package name and updated rev
 
 
 [build-system]

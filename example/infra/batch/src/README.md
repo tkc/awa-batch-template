@@ -2,7 +2,30 @@
 
 このディレクトリには、AWS Batch ジョブのコンテナエントリーポイントとして機能するスクリプト (`run_batch.py`) が含まれています。このスクリプトは、`awa-batch-processor` ライブラリ（メインプロジェクト）の `sample1` 処理を実行します。
 
-**重要:** このスクリプト (`run_batch.py`) は、AWS Batch 環境での実行専用に設計されており、パラメータを **環境変数** から読み込みます。ローカルでのテストや実行には、プロジェクトルートのメイン CLI (`poetry run cli sample1 ...`) を使用してください。
+**重要:** このスクリプト (`run_batch.py`) は、AWS Batch 環境での実行を主眼としており、パラメータを **環境変数** から読み込みます。コアロジックのローカルテストには、プロジェクトルートのメイン CLI (`poetry run cli sample1 ...`) の使用を推奨します。
+
+## ローカルでの直接実行 (デバッグ等)
+
+`run_batch.py` スクリプト自体をローカルで直接実行する必要がある場合（例: Batch 環境固有の動作をシミュレートしたい場合など）、**`poetry run` を使用して Poetry の仮想環境を有効にする必要があります。** これにより、依存関係 (`awa_batch_processor` パッケージ) が正しく解決されます。
+
+実行前に、必要な環境変数を設定してください。**また、この `infra/batch/src` ディレクトリからコマンドを実行する必要があります。**
+
+```bash
+# infra/batch/src ディレクトリにいることを確認
+
+# 例: 環境変数を設定
+export PROCESS_ID="local-debug-$(date +%s)"
+# CSVパスは現在のディレクトリ(infra/batch/src)からの相対パス
+export CSV_PATH="../../data/sample1_data.csv"
+
+# poetry run を付けて実行
+poetry run python run_batch.py
+```
+
+**注意:**
+
+- このディレクトリ (`infra/batch/src`) 以外から `poetry run python infra/batch/src/run_batch.py` を実行すると、依存関係が正しく解決されず `ModuleNotFoundError` が発生する可能性があります。
+- `poetry run` を付けずに実行した場合も `ModuleNotFoundError` が発生します。
 
 ## AWS Batch での実行
 

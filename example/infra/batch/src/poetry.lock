@@ -63,7 +63,7 @@ tests-no-zope = ["attrs[tests-mypy]", "cloudpickle", "hypothesis", "pympler", "p
 
 [[package]]
 name = "awa-batch-processor"
-version = "0.1.0"
+version = "0.3.0"
 description = "AWS Batch processor template with multiple commands"
 optional = false
 python-versions = "^3.11"
@@ -87,8 +87,8 @@ structlog = "^23.1.0"
 [package.source]
 type = "git"
 url = "https://github.com/tkc/awa-batch-template.git"
-reference = "v0.0.2"
-resolved_reference = "7702e47e734dd1e208b87e5e593556b250abf656"
+reference = "v0.0.3"
+resolved_reference = "97b87549df45ffcbd6721597b6a79f86c4f3650d"
 
 [[package]]
 name = "boto3"
@@ -1751,4 +1751,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "d64810668738a6cd842f4cc22585c79c470b75ec86e8fd29302b007facedc80b"
+content-hash = "6d3a6d1749a0397f1e83d88602caca08816ea0031dda7e3589c49d2e17f6db67"
