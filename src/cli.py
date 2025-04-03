@@ -2,7 +2,7 @@ import sys  # Add sys import
 
 import fire
 
-from src.config import load_config_from_file  # Remove load_config_from_env
+from src.config import load_config_from_file
 from src.main import sample1
 from src.models import Sample1Params
 
@@ -12,10 +12,10 @@ class CliCommands:
 
     def sample1(
         self, config_file: str
-    ):  # Make config_file required, remove override_env
+    ):
         """sample1 コマンドを実行"""
         try:
-            # Always load from config_file
+            # Load config using the updated Sample1Params model (now with process_id)
             params = load_config_from_file(Sample1Params, config_file)
             sample1(params)
         except (ValueError, FileNotFoundError) as e:

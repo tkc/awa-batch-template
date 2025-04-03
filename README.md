@@ -1,205 +1,183 @@
-# AWS Batch Template
+# AWS データ処理パイプラインテンプレート
 
-AWS Batch を使用したデータ処理パイプラインのテンプレートプロジェクトです。Terraform を使用してインフラを構築し、Poetry で依存関係を管理しています。pydantic-settings を使用して環境変数や設定を柔軟に扱い、Pandas と Pandera を使用して CSV データのバリデーションと処理を行います。GitHub Actions による自動デプロイ機能も備えています。
+このリポジトリは、AWS 上でデータ処理パイプラインを構築するためのテンプレートプロジェクトです。AWS Batch と SageMaker Pipeline の両方の実行環境に対応しています。
+
+Terraform を使用してインフラを構築し、Poetry で依存関係を管理しています。pydantic-settings を使用して環境変数や設定を柔軟に扱い、Pandas と Pandera を使用して CSV データのバリデーションと処理を行います。
 
 ## 機能
 
-- サンプル CSV 処理コマンド（sample1）
+- サンプル CSV 処理コマンド (`sample1`)
 - Pandera を使用した強力なデータバリデーション
 - Pandas を利用したデータ処理と分析
-- AWS Batch によるジョブ実行
+- **AWS Batch** によるジョブ実行
+- **SageMaker Pipeline** による複数ステップのワークフロー実行
 - Terraform によるインフラのコード化
 - Docker + ECR によるコンテナ化
 - Poetry による依存関係管理
 - pydantic-settings による設定管理
-- GitHub Actions による自動デプロイ
+- リファクタリングされた明確なディレクトリ構造
 
 ## プロジェクト構造
 
 ```
 /
-├── .github/                        # GitHub関連
-│   └── workflows/                  # GitHub Actions設定
-│       └── deploy-on-release.yml   # リリース時デプロイワークフロー
-├── README.md                       # プロジェクト説明
-├── .gitignore                      # Gitの除外ファイル設定
-├── .env.sample                     # 環境変数サンプル
-├── pyproject.toml                  # Poetry設定
-├── Dockerfile                      # Dockerイメージ定義
-├── samples/                        # サンプルCSVファイル
-│   └── sample1_data.csv            # 学生データ (サンプル)
-├── src/                            # アプリケーションコード (パッケージ)
-│   ├── cli.py                  # ローカル実行用CLI
-│   ├── batch_cli.py            # AWS Batch実行用CLI
-│   ├── main.py                 # 各サンプル処理のコアロジック
-│   ├── config.py               # 設定読み込みロジック
-│   ├── models.py               # Pydanticモデル定義
-│   ├── schemas.py              # Panderaスキーマ定義
-│   ├── logger_config.py        # ロガー設定
-│   └── requirements.txt        # Dockerイメージ用 (poetry export)
-├── terraform/                      # Terraform構成ファイル
-│   ├── main.tf                     # メインのTerraform設定
-│   ├── variables.tf                # 変数定義
-│   ├── outputs.tf                  # 出力定義
-│   ├── vpc.tf                      # VPC設定
-│   ├── batch_main.tf               # AWS Batch共通設定
-│   ├── batch_sample1.tf            # Sample1ジョブ定義 (例)
-│   ├── ecr.tf                      # ECRリポジトリ設定
-│   ├── s3.tf                       # S3バケット設定
-└── scripts/                        # デプロイ関連スクリプト
-    ├── build.sh                    # Dockerイメージビルドスクリプト
-    └── deploy.sh                   # デプロイスクリプト
+├── .github/                       # GitHub関連ファイル
+├── infra/                         # インフラストラクチャ関連コード
+│   ├── batch/                     # AWS Batch関連
+│   │   ├── docker/                # AWS Batch用Dockerファイル
+│   │   │   └── Dockerfile         # AWS Batch用Dockerイメージ定義
+│   │   ├── src/                   # AWS Batch実行用ソースコード
+│   │   │   ├── pyproject.toml     # Batch専用の依存関係
+│   │   │   └── run_batch.py       # AWS Batch実行用スクリプト
+│   │   └── terraform/             # AWS Batch用Terraformコード
+│   └── sagemaker/                 # SageMaker Pipeline関連
+│       ├── docker/                # SageMaker用Dockerファイル
+│       │   └── Dockerfile         # SageMaker Pipeline用Dockerイメージ定義
+│       └── src/                   # SageMaker実行用ソースコード
+│           ├── pyproject.toml     # SageMaker専用の依存関係
+│           ├── pipeline.py        # SageMaker Pipeline定義
+│           └── run_all_samples.py # 複数のサンプル実行用スクリプト
+├── samples/                       # サンプルデータファイル
+│   └── sample1_data.csv           # 学生データ (サンプル)
+├── scripts/                       # ユーティリティスクリプト
+├── src/                           # アプリケーションコア
+│   ├── cli.py                     # コマンドラインインターフェース
+│   ├── config.py                  # 設定管理
+│   ├── logger_config.py           # ロギング設定
+│   ├── main.py                    # メイン処理ロジック
+│   ├── models.py                  # Pydanticモデル定義
+│   ├── requirements.txt           # Docker用依存関係リスト
+│   └── schemas.py                 # Panderaスキーマ定義
+├── tests/                         # テストコード
+├── .env.sample                    # 環境変数サンプル
+├── Develop.md                     # 開発ガイド
+├── poetry.lock                    # Poetryロックファイル
+├── pyproject.toml                 # Poetryプロジェクト設定
+└── README.md                      # このファイル
 ```
 
-## サンプル CSV データの処理
+## 主要コンポーネント
 
-このテンプレートにはサンプル CSV 処理コマンド `sample1` が含まれています：
+### コアアプリケーション (`src/`)
 
-1. **sample1**: 学生データの処理
-   - CSV の形式: ID, 名前, 年齢, スコア
-   - 処理内容: 基本的な統計情報の計算（平均スコア、最高スコア、最低スコア）など (現在はバリデーションのみ)
+- **cli.py**: コマンドラインインターフェース（ローカル実行用）
+- **main.py**: データ処理のコアロジック
+- **models.py**: Pydanticを使用したデータモデル定義
+- **schemas.py**: Panderaを使用したデータ検証スキーマ
+- **config.py**: 設定読み込みロジック
+- **logger_config.py**: 構造化ロギング設定
 
-### Pandera によるデータバリデーション
+### AWS Batch (`infra/batch/`)
 
-`sample1` コマンドでは、Pandera を使用してデータを検証しています。Pandera はデータフレームのスキーマ検証を行うライブラリで、以下のような検証を実施しています：
+AWS Batch環境でPythonスクリプトを実行するためのコンポーネント：
 
-- 列の型チェック（整数、文字列、浮動小数点など）
-- 値の範囲チェック（最小値、最大値）
-- カスタムバリデーションルール（合計値のチェックなど）
+- **docker/Dockerfile**: AWS Batch用のDockerイメージ定義
+- **src/run_batch.py**: AWS Batch実行用のエントリーポイント
+- **terraform/**: AWS Batch環境をTerraformで定義
 
-スキーマは `src/schemas.py` で定義されています。
+### SageMaker Pipeline (`infra/sagemaker/`)
 
-## セットアップ手順
+SageMaker Pipelineを使用したワークフローを構築するためのコンポーネント：
 
-### 前提条件
+- **docker/Dockerfile**: SageMaker Pipeline用のDockerイメージ定義
+- **src/pipeline.py**: SageMaker Pipelineの定義
+- **src/run_all_samples.py**: 複数のサンプル処理を順次実行するスクリプト
 
-- AWS CLI
-- Terraform
-- Docker
-- Poetry（Python パッケージ管理）
+## 実行環境
 
-### インフラのセットアップ
+このプロジェクトは、以下の環境で実行できます：
 
-1. Terraform の初期化
+### 1. ローカル環境 (`src/cli.py`)
 
-```bash
-cd terraform
-terraform init
-```
-
-2. リソースの作成
-
-```bash
-terraform apply
-```
-
-### アプリケーションのビルドとデプロイ
-
-#### 手動デプロイ
-
-1. ローカルで Docker イメージをビルド
-
-```bash
-./scripts/build.sh
-```
-
-2. ECR にイメージをプッシュ
-
-```bash
-./scripts/deploy.sh
-```
-
-#### GitHub Actions による自動デプロイ
-
-このリポジトリには、GitHub Release を作成すると自動的に ECR にイメージをデプロイするワークフローが含まれています。
-
-設定手順:
-
-1. GitHub リポジトリにシークレットを追加:
-
-   - `AWS_ACCESS_KEY_ID`: AWS アクセスキー ID
-   - `AWS_SECRET_ACCESS_KEY`: AWS シークレットアクセスキー
-
-   注: 使用する IAM ユーザーには、ECR、Batch、S3 などへのアクセス権限が必要です。
-
-2. リリースの作成:
-
-   - GitHub リポジトリで「Releases」タブに移動
-   - 「Draft a new release」をクリック
-   - タグバージョンとリリースタイトルを入力
-   - 「Publish release」をクリック
-
-3. 自動デプロイの進捗:
-   - リリースの作成後、GitHub Actions タブでワークフローの進捗を確認できます
-   - ワークフローは Terraform の適用と ECR へのイメージのデプロイを自動的に行います
-
-## 利用方法
-
-### AWS Batch ジョブの実行
-
-AWS Management Console または AWS CLI を使用してジョブを実行できます。パラメータは **JSON 形式** で渡します。
-
-CLI での実行例 (環境変数を使用):
-
-```bash
-# sample1 を実行
-aws batch submit-job \
-    --job-name "sample1-test-cli" \
-    --job-queue "your-job-queue-name" \
-    --job-definition "your-batch-cli-job-definition" \
-    --container-overrides '{"command":["poetry", "run", "batch-cli", "sample1"],"environment":[{"name":"INPUT_PATH","value":"s3://your-bucket/input/sample1_data.csv"},{"name":"OUTPUT_PATH","value":"s3://your-bucket/output/sample1.csv"},{"name":"MIN_SCORE","value":"70"}]}'
-
-```
-
-_`your-job-queue-name` と `your-batch-cli-job-definition` は実際の環境に合わせてください。_
-_`your-batch-cli-job-definition` は `poetry run batch-cli sample1` を実行するように設定します。_
-
-### ローカルでのテスト実行
-
-Poetry を使用してローカルで直接実行するか、Docker を使用してコンテナ内でテストできます。
-
-#### Poetry での実行 (`cli` コマンド)
-
-パラメータは、`--config_file` オプションで JSON ファイルを指定します。
+開発やテスト目的に最適。`poetry`を使用して依存関係をインストールし、コマンドラインから直接実行します。
 
 ```bash
 # 依存関係のインストール
 poetry install
 
-# sample1: 設定ファイルで実行
-poetry run cli sample1 --config_file=samples/params_sample1.json
+# サンプルコマンドの実行
+poetry run cli sample1 --config_file=path/to/config.json
 ```
 
-#### Docker での実行 (`cli` コマンド)
+### 2. AWS Batch (`infra/batch/`)
 
-パラメータは、`--config_file` オプションでマウントした JSON ファイルのパスを指定します。
+大規模な分散バッチ処理に適しています。
 
 ```bash
-# イメージのビルド (初回のみ)
-./scripts/build.sh
+# Dockerイメージのビルドとプッシュ
+cd infra/batch
+docker build -t your-repo/batch-image:latest -f docker/Dockerfile .
+docker push your-repo/batch-image:latest
 
-# sample1: 設定ファイルで実行
-docker run --rm -v $(pwd)/samples:/app/samples -v $(pwd)/output:/app/output awa-batch-template:latest cli sample1 --config_file=samples/params_sample1.json
+# Terraform でインフラをデプロイ
+cd terraform
+terraform init
+terraform apply
 ```
 
-_出力ディレクトリ (`output`) もマウントしています。_
+### 3. SageMaker Pipeline (`infra/sagemaker/`)
+
+機械学習ワークフローや複数ステップの処理パイプラインに最適です。
+
+```bash
+# Dockerイメージのビルドとプッシュ
+cd infra/sagemaker
+docker build -t your-repo/sagemaker-image:latest -f docker/Dockerfile .
+docker push your-repo/sagemaker-image:latest
+
+# パイプラインの登録/更新
+python src/pipeline.py \
+  --pipeline-name my-pipeline \
+  --role-arn arn:aws:iam::ACCOUNT_ID:role/SageMakerPipelineRole \
+  --region us-east-1
+```
+
+## サンプル処理: `sample1`
+
+このテンプレートにはサンプル処理コマンド `sample1` が含まれています：
+
+- **処理内容**: 学生データ (ID, 名前, 年齢, スコア) を含む CSV ファイルを読み込み、Panderaでのデータ検証を行います
+- **スキーマ定義**: `src/schemas.py`
+- **パラメータ定義**: `src/models.py`
 
 ## 設定管理
 
-このプロジェクトでは、pydantic-settings を使用して設定を管理しています。設定は以下の方法で指定できます:
+プロジェクトでは複数の設定管理方法をサポートしています：
 
-1. 環境変数
-2. .env ファイル
-3. コマンドライン引数
+1. **JSON設定ファイル**: `--config_file=path/to/config.json` で指定
+2. **環境変数**: AWS Batchでは環境変数で設定パラメータを渡す
+3. **S3上の設定ファイル**: SageMaker Pipelineでは S3 上の設定ファイルを使用
 
-優先順位:
-コマンドライン引数 > 環境変数 > .env ファイル > デフォルト値
+## 高度な機能
 
-### .env ファイルの使用
+### 1. マルチステップ処理（SageMaker Pipeline）
 
-開発環境では、`.env`ファイルを使用できます:
+`infra/sagemaker/src/run_all_samples.py` を使用して、複数の処理ステップを連続実行できます。例：
 
-```bash
-cp .env.sample .env
-# .envファイルを編集して設定を行う
 ```
+ステップ1: 第1の設定ファイルで sample1 を実行
+ステップ2: 第2の設定ファイルで sample1 を実行
+```
+
+### 2. ロギング
+
+構造化ロギングを `src/logger_config.py` で設定しています。JSON形式のログが出力され、CloudWatchとの統合が容易です。
+
+### 3. エラーハンドリング
+
+Panderaを使用したデータバリデーションにより、早期にデータ品質の問題を検出できます。
+
+## 始めるには
+
+1. リポジトリをクローンする
+2. `.env.sample` を `.env` にコピーして必要に応じて編集
+3. `poetry install` で依存関係をインストール
+4. サンプルコマンドを実行: `poetry run cli sample1 --config_file=path/to/config.json`
+
+## 貢献
+
+プルリクエストを歓迎します。大きな変更を加える前に、まずIssueでディスカッションを開始してください。
+
+## ライセンス
+
+このプロジェクトはMITライセンスの下で公開されています。

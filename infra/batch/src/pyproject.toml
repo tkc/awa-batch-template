@@ -1,0 +1,16 @@
+[tool.poetry]
+package-mode = false
+name = "awa-batch-runner" # Separate name for this specific runner package
+version = "0.1.0"
+description = "Runner for AWS Batch jobs using awa-batch-template library"
+authors = ["Your Name <your.email@example.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11" # Match the Dockerfile base image python version
+# Depend on the library installed from git, using the actual package name
+awa-batch-processor = { git = "https://github.com/tkc/awa-batch-template.git", rev = "v0.0.1" } # Changed key to match package name
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

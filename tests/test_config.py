@@ -1,30 +1,21 @@
 import json
+import sys
 from pathlib import Path
 
-import pytest
-from pydantic import BaseModel, Field
+# Add project root to sys.path
+project_root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(project_root))
 
-# テスト対象のモジュールをインポート
+import pytest
+from pydantic import ValidationError
+
+# テスト対象のモジュールをインポート (src. プレフィックス付き)
 from src.config import load_config_from_file
+from src.models import Sample1Params
 
 # テスト用の定数
-TEST_BATCH_SIZE_FILE = 50
-TEST_BATCH_SIZE_ENV = 200
-TEST_INPUT_PATH_FILE = "/data/input"
-TEST_OUTPUT_PATH_FILE = "/data/output"
-TEST_INPUT_PATH_ENV = "/env/input"
-TEST_OUTPUT_PATH_ENV = "/env/output"
-TEST_OPTIONAL_PARAM_FILE = "test_value"
-TEST_OPTIONAL_PARAM_ENV = "env_test"
-
-
-# テスト用のシンプルなPydanticモデル
-class ConfigTestModel(BaseModel):  # Renamed from TestParams
-    input_path: str = Field(..., description="入力パス")
-    output_path: str = Field(..., description="出力パス")
-    batch_size: int = Field(100, description="バッチサイズ")
-    debug: bool = Field(False, description="デバッグモード")
-    optional_param: str | None = Field(None, description="オプションパラメータ")
+TEST_PROCESS_ID_FILE = "test_config_process_id"
+TEST_CSV_PATH_FILE = "data/sample_test.csv"
 
 
 # --- load_config_from_file のテスト ---
@@ -34,11 +25,8 @@ class ConfigTestModel(BaseModel):  # Renamed from TestParams
 def valid_config_file(tmp_path: Path) -> str:
     """有効な設定JSONファイルを作成するフィクスチャ"""
     config_data = {
-        "input_path": TEST_INPUT_PATH_FILE,
-        "output_path": TEST_OUTPUT_PATH_FILE,
-        "batch_size": TEST_BATCH_SIZE_FILE,  # Use constant
-        "debug": True,
-        "optional_param": TEST_OPTIONAL_PARAM_FILE,
+        "process_id": TEST_PROCESS_ID_FILE,
+        "csv_path": TEST_CSV_PATH_FILE,
     }
     config_path = tmp_path / "valid_config.json"
     with open(config_path, "w") as f:
@@ -57,11 +45,9 @@ def invalid_json_file(tmp_path: Path) -> str:
 
 @pytest.fixture
 def invalid_schema_file(tmp_path: Path) -> str:
-    """スキーマに合わないJSONファイルを作成するフィクスチャ"""
+    """スキーマに合わないJSONファイルを作成するフィクスチャ (必須フィールド欠損)"""
     config_data = {
-        "input_path": TEST_INPUT_PATH_FILE,
-        # output_path が欠けている
-        "batch_size": "not_an_int",  # 型が違う
+        "csv_path": TEST_CSV_PATH_FILE # process_id が欠けている
     }
     config_path = tmp_path / "invalid_schema.json"
     with open(config_path, "w") as f:
@@ -71,36 +57,26 @@ def invalid_schema_file(tmp_path: Path) -> str:
 
 def test_load_config_from_file_success(valid_config_file: str):
     """正常系: 有効なJSONファイルから設定を読み込めるか"""
-    params = load_config_from_file(
-        ConfigTestModel, valid_config_file
-    )  # Updated class name
-    assert params.input_path == TEST_INPUT_PATH_FILE
-    assert params.output_path == TEST_OUTPUT_PATH_FILE
-    assert params.batch_size == TEST_BATCH_SIZE_FILE  # Use constant
-    assert params.debug is True
-    assert params.optional_param == TEST_OPTIONAL_PARAM_FILE
+    params = load_config_from_file(Sample1Params, valid_config_file)
+    assert isinstance(params, Sample1Params)
+    assert params.process_id == TEST_PROCESS_ID_FILE
+    assert params.csv_path == TEST_CSV_PATH_FILE
 
 
 def test_load_config_from_file_not_found():
     """異常系: 存在しないファイルを指定した場合にFileNotFoundErrorが発生するか"""
     with pytest.raises(FileNotFoundError):
-        load_config_from_file(
-            ConfigTestModel, "non_existent_file.json"
-        )  # Updated class name
+        load_config_from_file(Sample1Params, "non_existent_file.json")
 
 
 def test_load_config_from_file_invalid_json(invalid_json_file: str):
     """異常系: 不正なJSONファイルを指定した場合にValueErrorが発生するか"""
     with pytest.raises(ValueError, match="Invalid JSON format"):
-        load_config_from_file(ConfigTestModel, invalid_json_file)  # Updated class name
+        load_config_from_file(Sample1Params, invalid_json_file)
 
 
 def test_load_config_from_file_invalid_schema(invalid_schema_file: str):
     """異常系: スキーマに合わないJSONファイルを指定した場合にValueErrorが発生するか"""
+    # Expect ValueError because load_config_from_file wraps ValidationError
     with pytest.raises(ValueError, match="Configuration validation failed"):
-        load_config_from_file(
-            ConfigTestModel, invalid_schema_file
-        )  # Updated class name
-
-
-# --- load_config_from_env のテストは削除 ---
+        load_config_from_file(Sample1Params, invalid_schema_file)
