@@ -1,0 +1,64 @@
+# Stage 1: Build stage - Install dependencies
+FROM python:3.11-slim as builder
+
+# Install build tools and Poetry
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    git \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN curl -sSL https://install.python-poetry.org | python3 -
+ENV PATH="/root/.local/bin:$PATH"
+
+# Set working directory
+WORKDIR /app
+
+# Configure Poetry to not create virtualenvs
+RUN poetry config virtualenvs.create false
+
+# Copy only dependency definition files first to leverage Docker cache
+# These files are located in the build context directory (example/batch)
+COPY pyproject.toml poetry.lock ./
+
+# Install dependencies defined in example/batch/pyproject.toml
+# Use --no-root to prevent installation of the current project (batch), only its dependencies
+RUN poetry install --no-interaction --no-ansi --no-root
+
+# Stage 2: Runtime stage - Create the final image
+FROM python:3.11-slim as runtime
+
+# Create a non-root user and group
+RUN groupadd --gid 1001 appuser && \
+    useradd --uid 1001 --gid 1001 --shell /bin/bash --create-home appuser
+
+# Install any necessary runtime system packages here if needed
+# RUN apt-get update && apt-get install -y --no-install-recommends \
+#     some-runtime-package \
+#     && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
+WORKDIR /app
+
+# Copy installed Python packages from the builder stage's global site-packages directory
+COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+# Copy Poetry's entrypoint scripts if needed (less common without virtualenv)
+# COPY --from=builder /root/.local/bin /usr/local/bin # Poetry executable itself is here
+
+# Copy the batch run script from the current context
+# src/batch_processor code will be installed via poetry from the git dependency
+COPY src/run_batch.py /app/run_batch.py
+
+# Ensure the app directory and its contents are owned by the appuser
+RUN chown -R appuser:appuser /app
+
+# Switch to the non-root user
+USER appuser
+
+# PYTHONPATH is not needed as packages are installed in site-packages
+
+# Define the entrypoint to run the batch script using python
+ENTRYPOINT ["python", "/app/run_batch.py"]
+
+# Optional: Default command arguments
+# CMD ["--help"]

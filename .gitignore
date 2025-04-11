@@ -1,9 +1,12 @@
 # Terraform関連
 *.tfstate
 *.tfstate.backup
+*.tfstate.*
+*.tfstate.*.backup
 *.tfstate.lock.info
 .terraform/
 .terraform.lock.hcl
+.terragrunt-cache/
 
 # Python関連
 __pycache__/

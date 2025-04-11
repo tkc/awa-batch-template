@@ -1,18 +1,18 @@
-# AWS Batch 開発ガイド
+# AWS Batch開発ガイド
 
-このドキュメントは AWS Batch ジョブの開発とデプロイに関するガイドラインを提供します。
+このドキュメントはAWS Batchジョブの開発とデプロイに関するガイドラインを提供します。
 
 ## パラメーター利用方法
 
-AWS Batch ジョブでは、ジョブの実行時に様々なパラメーターを渡す必要があります。ローカル開発時とクラウド実行時の両方で使える効率的なパラメーター管理方法を以下に説明します。
+AWS Batchジョブでは、ジョブの実行時に様々なパラメーターを渡す必要があります。ローカル開発時とクラウド実行時の両方で使える効率的なパラメーター管理方法を以下に説明します。
 
-### Pydanic を活用したパラメーター管理
+### Pydanicを活用したパラメーター管理
 
-Pydanic を使用すると、強力な型チェックと検証を行いながらパラメーターを管理できます。以下の方法は、ローカル開発環境と AWS Batch 環境の両方で一貫して使用できる方法です。
+Pydanicを使用すると、強力な型チェックと検証を行いながらパラメーターを管理できます。以下の方法は、ローカル開発環境とAWS Batch環境の両方で一貫して使用できる方法です。
 
-#### 1. 改善されたアプローチ
+#### 1. 基本的なアプローチ
 
-以下のコードは、複数のソース（コマンドライン引数、個別の環境変数、JSON 環境変数）から設定を読み込み、Pydantic モデルで検証する改善されたアプローチです。
+以下のコードは、コマンドライン引数からJSONファイルを読み込む方法とAWS Batch環境変数からパラメーターを取得する方法をシンプルに統合したものです：
 
 ```python
 import json
@@ -20,7 +20,7 @@ import os
 import sys
 import argparse
 from typing import Optional, Dict, Any, Type, TypeVar
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel
 
 # シンプルなPydanicモデルの定義例
 class Config(BaseModel):
@@ -33,95 +33,50 @@ T = TypeVar('T', bound=BaseModel)
 
 def load_config(model_class: Type[T]) -> T:
     """
-    複数のソースから設定を読み込み、Pydanticモデルで検証する。
-    優先順位: コマンドライン引数 > 個別環境変数 > JSON環境変数
-
-    ローカル実行例:
-    - python main.py --param_json config.json
-    - INPUT_PATH=data/input/ OUTPUT_PATH=data/output/ BATCH_SIZE=100 python main.py
-
-    AWS Batch実行例:
-    - 環境変数 CONFIG_JSON に JSON 文字列を設定
-    - または、個別の環境変数 (INPUT_PATH, OUTPUT_PATH など) を設定
+    コマンドライン引数またはAWS Batch環境変数からコンフィグを読み込む
+    
+    ローカル実行: python main.py --param_json config.json
+    AWS Batch: 環境変数 CONFIG_JSON に設定値がある場合
     """
-    parser = argparse.ArgumentParser(description="Load configuration for batch job.")
-    parser.add_argument('--param_json', type=str, help='Path to JSON parameter file.')
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--param_json', type=str, help='Path to JSON parameter file')
     args, _ = parser.parse_known_args()
-
+    
     config_data: Dict[str, Any] = {}
-    source_description = "Defaults"
-
-    # 1. コマンドライン引数 (--param_json) から読み込み
-    if args.param_json:
-        if os.path.exists(args.param_json):
-            print(f"Loading config from JSON file: {args.param_json}")
-            with open(args.param_json, 'r') as f:
-                config_data = json.load(f)
-            source_description = f"JSON file ({args.param_json})"
-        else:
-            print(f"Warning: Specified JSON file not found: {args.param_json}", file=sys.stderr)
-
-    # 2. 個別の環境変数から読み込み (JSONファイルがない場合、または上書き)
-    #    モデルのフィールド名に基づいて環境変数名を大文字で検索
-    env_vars_found = False
-    temp_env_config: Dict[str, Any] = {}
-    for field_name in model_class.model_fields.keys():
-        env_var_name = field_name.upper()
-        if env_var_name in os.environ:
-            temp_env_config[field_name] = os.environ[env_var_name]
-            env_vars_found = True
-
-    if env_vars_found:
-        # JSONファイルより環境変数を優先する場合、またはJSONファイルがない場合
-        if not config_data or os.environ.get("OVERRIDE_CONFIG_WITH_ENV", "false").lower() == "true":
-             print("Loading/Overriding config from individual environment variables.")
-             config_data.update(temp_env_config) # update は既存のキーを上書き
-             source_description = "Individual environment variables"
-
-    # 3. JSON 文字列の環境変数 (CONFIG_JSON) から読み込み (上記で見つからない場合)
+    
+    # 1. まずコマンドライン引数をチェック
+    if args.param_json and os.path.exists(args.param_json):
+        print(f"Loading config from local file: {args.param_json}")
+        with open(args.param_json, 'r') as f:
+            config_data = json.load(f)
+    
+    # 2. JSON文字列の環境変数をチェック
     elif 'CONFIG_JSON' in os.environ:
-        print("Loading config from CONFIG_JSON environment variable.")
-        try:
-            config_data = json.loads(os.environ['CONFIG_JSON'])
-            source_description = "CONFIG_JSON environment variable"
-        except json.JSONDecodeError as e:
-            print(f"Error decoding CONFIG_JSON: {e}", file=sys.stderr)
-            # エラーが発生しても、空の辞書で続行し、Pydanticの検証に任せる
-
-    # 4. Pydanticモデルで検証
-    try:
-        model_instance = model_class(**config_data)
-        print(f"Configuration loaded successfully from: {source_description}")
-        return model_instance
-    except ValidationError as e:
-        print(f"Error validating configuration from {source_description}:", file=sys.stderr)
-        print(e, file=sys.stderr)
-        # どの設定が不足しているか、型が違うかなどの詳細が表示される
-        raise ValueError("Configuration validation failed.") from e
-    except Exception as e:
-        print(f"An unexpected error occurred during configuration loading: {e}", file=sys.stderr)
-        raise
+        print("Loading config from environment variable CONFIG_JSON")
+        config_data = json.loads(os.environ['CONFIG_JSON'])
+    
+    # 3. 設定が見つからない場合はエラー
+    else:
+        raise ValueError("No configuration found. Please provide --param_json argument or set CONFIG_JSON environment variable.")
+    
+    # Pydanicモデルに変換してバリデーション
+    return model_class(**config_data)
 
 def main():
     # 設定を読み込む
     try:
         config = load_config(Config)
-        print("\n--- Configuration ---")
+        print("Configuration loaded successfully!")
         print(f"Input path: {config.input_path}")
         print(f"Output path: {config.output_path}")
         print(f"Batch size: {config.batch_size}")
         print(f"Debug mode: {config.debug}")
-        print("---------------------\n")
-
+        
         # ここに実際の処理を記述
         # ...
-        print("Batch job logic would run here.")
-
-    except ValueError as e: # load_config で発生したエラーを捕捉
-        print(f"\nConfiguration Error: {e}", file=sys.stderr)
-        sys.exit(1)
+        
     except Exception as e:
-        print(f"\nAn unexpected error occurred: {e}", file=sys.stderr)
+        print(f"Error loading configuration: {e}")
         sys.exit(1)
 
 if __name__ == "__main__":
@@ -132,204 +87,333 @@ if __name__ == "__main__":
 
 ##### ローカル開発環境での使用方法
 
-1.  **JSON ファイルを使用する場合**:
-
-    `config.json`:
-
-    ```json
-    {
-      "input_path": "data/input/",
-      "output_path": "data/output/",
-      "batch_size": 100,
-      "debug": true
-    }
-    ```
-
-    実行:
-
-    ```bash
-    python main.py --param_json config.json
-    ```
-
-2.  **個別の環境変数を使用する場合**:
-
-    実行:
-
-    ```bash
-    INPUT_PATH="data/input/" OUTPUT_PATH="data/output/" BATCH_SIZE=100 DEBUG=true python main.py
-    ```
-
-    _(注意: 環境変数は通常文字列として渡されるため、`BATCH_SIZE` や `DEBUG` は Pydantic が適切に型変換します)_
-
-3.  **JSON 環境変数を使用する場合**:
-
-    実行:
-
-    ```bash
-    CONFIG_JSON='{"input_path": "data/input/", "output_path": "data/output/", "batch_size": 100, "debug": true}' python main.py
-    ```
-
-##### AWS CLI 経由での Batch 実行方法
-
-1.  **個別のパラメータを使用する場合 (推奨)**:
-
-    `job_params.json` (AWS CLI の `--parameters` オプション用):
-
-    ```json
-    {
-      "INPUT_PATH": "s3://my-bucket/input/",
-      "OUTPUT_PATH": "s3://my-bucket/output/",
-      "BATCH_SIZE": "200",
-      "DEBUG": "false"
-    }
-    ```
-
-    _(注意: Batch パラメータは文字列として渡されるため、Pydantic で型変換が必要です)_
-
-    ジョブ定義 (`my-job-definition`) でこれらのパラメータを受け付けるように設定し、ジョブを送信:
-
-    ```bash
-    aws batch submit-job \
-        --job-name MyBatchJob \
-        --job-queue my-job-queue \
-        --job-definition my-job-definition \
-        --parameters file://job_params.json
-    ```
-
-2.  **JSON 文字列パラメータを使用する場合**:
-
-    `job_config_json.json` (AWS CLI の `--parameters` オプション用):
-
-```json
-{
-  "input_path": "data/input/",
-  "output_path": "data/output/",
-  "batch_size": 100,
-  "debug": true
-}
-```
-
-2. スクリプトを実行
-
-```bash
-   python main.py --param_json config.json
-```
-
-##### AWS CLI 経由での Batch 実行方法
-
-1. ローカルにジョブ定義ファイルを作成
-
+1. シンプルなJSONファイルでパラメーターを定義
+   
+   `config.json`:
    ```json
    {
-     "CONFIG_JSON": "{\"input_path\":\"s3://my-bucket/input/\",\"output_path\":\"s3://my-bucket/output/\",\"batch_size\":200,\"debug\":false}"
+     "input_path": "data/input/",
+     "output_path": "data/output/",
+     "batch_size": 100,
+     "debug": true
    }
    ```
 
-   ジョブ定義 (`my-job-definition`) で `CONFIG_JSON` パラメータを受け付けるように設定し、ジョブを送信:
-
+2. スクリプトを実行
    ```bash
-   aws batch submit-job \
-       --job-name MyBatchJob \
-       --job-queue my-job-queue \
-       --job-definition my-job-definition \
-       --parameters file://job_config_json.json
+   python main.py --param_json config.json
    ```
 
-#### 3. メリット
+##### AWS CLI経由でのBatch実行方法
 
-この改善されたアプローチには以下のメリットがあります：
+1. ローカルにジョブ定義ファイルを作成
+   
+   `job.json`:
+   ```json
+   {
+     "jobName": "MyBatchJob",
+     "jobQueue": "my-job-queue",
+     "jobDefinition": "my-job-definition",
+     "parameters": {
+       "CONFIG_JSON": "{\"input_path\":\"s3://my-bucket/input/\",\"output_path\":\"s3://my-bucket/output/\",\"batch_size\":200,\"debug\":false}"
+     }
+   }
+   ```
 
-- **柔軟性**: 複数の設定ソース（ファイル、個別環境変数、JSON 環境変数）をサポート
-- **明確な優先順位**: 設定値がどこから来たのか、どの値が優先されるかが明確
-- **環境間の一貫性**: ローカルと AWS Batch で同じコードベースを使用可能
-- **堅牢な検証**: Pydantic による強力な型チェックとバリデーション、エラーメッセージの改善
-- **AWS Batch との親和性**: 個別の環境変数でのパラメータ渡しに対応し、AWS Batch の標準的な使い方に適合しやすい
-- **可読性**: 設定の読み込みロジックと Pydantic モデル定義により、設定構造が理解しやすい
+2. AWS CLIを使用してジョブを送信
+   ```bash
+   aws batch submit-job --cli-input-json file://job.json
+   ```
 
 #### 3. メリット
 
 このアプローチには以下のメリットがあります：
 
+- **シンプルさ**: 最低限の設定読み込み方法に絞ることで複雑さが減少
+- **環境間の一貫性**: ローカル開発環境とAWS Batch環境で同じコードが使える
+- **型安全性**: Pydanicによる堅牢な型チェックとバリデーション
+- **エラー処理**: 設定値の問題を早期に検出
+- **可読性**: 設定値の構造が明確で理解しやすい
+
 #### 4. 注意点
 
-- AWS Batch で実行する場合、必要な IAM アクセス権限を設定する必要があります
-- 機密情報を含むパラメーターの場合は、AWS Systems Manager の Parameter Store や AWS Secrets Manager の使用も検討してください
+- AWS Batchで実行する場合、必要なIAMアクセス権限を設定する必要があります
+- 機密情報を含むパラメーターの場合は、AWS Systems ManagerのParameter StoreやAWS Secrets Managerの使用も検討してください
 - 大規模なプロジェクトでは、設定モジュールを別のファイルとして分離し、再利用可能にすることを推奨します
 
-## CLI ツールの実行
+## 複数リポジトリのコードを利用する方法
 
-`cli` コマンド (ローカル実行用) と `batch-cli` コマンド (AWS Batch 実行用) を提供します。どちらも `sample1`, `sample2`, `sample3` サブコマンドを持ちます。
+AWS Batchでは、複数のリポジトリのコードを組み合わせてパイプラインを実行することができます。以下に主要なアプローチをいくつか紹介します。
 
-### ローカル実行 (`cli` コマンド)
+### 1. Dockerイメージ内に複数リポジトリを含める
 
-`poetry run cli <サブコマンド> [オプション]` の形式で実行します。
+AWS Batchはコンテナベースで動作するため、カスタムDockerイメージを作成して複数のリポジトリのコードを一つのイメージに含めることができます。
 
-**設定ファイルを使用する場合:**
+```Dockerfile
+FROM python:3.9
 
-```bash
-# sample1 を設定ファイルで実行
-poetry run cli sample1 --config_file=samples/params_sample1.json
+# 1つ目のリポジトリをクローン
+RUN git clone https://github.com/your-org/repo1.git /app/repo1
+WORKDIR /app/repo1
+RUN pip install -r requirements.txt
 
-# sample2 を設定ファイルで実行
-poetry run cli sample2 --config_file=samples/params_sample2.json
+# 2つ目のリポジトリをクローン
+RUN git clone https://github.com/your-org/repo2.git /app/repo2
+WORKDIR /app/repo2
+RUN pip install -r requirements.txt
 
-# sample3 を設定ファイルで実行
-poetry run cli sample3 --config_file=samples/params_sample3.json
+# メインのワーキングディレクトリを設定
+WORKDIR /app
+
+# エントリポイントスクリプト（両方のリポジトリのコードを実行するスクリプト）
+COPY entrypoint.sh /app/
+RUN chmod +x /app/entrypoint.sh
+
+ENTRYPOINT ["/app/entrypoint.sh"]
 ```
 
-**ヘルプ表示:**
-
+エントリポイントスクリプト例（`entrypoint.sh`）:
 ```bash
-poetry run cli --help
-poetry run cli sample1 --help
+#!/bin/bash
+set -e
+
+# PYTHONPATHに両方のリポジトリを追加
+export PYTHONPATH=$PYTHONPATH:/app/repo1:/app/repo2
+
+# パイプラインスクリプトを実行
+python /app/repo1/src/pipeline.py "$@"
 ```
 
-### AWS Batch 実行 (`batch-cli` コマンド)
+#### メリット
+- シンプルな実装でコード全体を一つのイメージに統合
+- リポジトリ間の依存関係が明示的に管理可能
 
-AWS Batch では、`batch-cli` をエントリーポイントとして使用します。ジョブ定義の `command` で `poetry run batch-cli <サブコマンド>` を指定し、必要なパラメータを環境変数として渡します。
+#### デメリット
+- コードが更新されるたびにイメージの再ビルドが必要
+- イメージサイズが大きくなる可能性がある
 
-**例 (AWS CLI で sample1 を実行):**
+### 2. Git Submodulesを使用する
 
-ジョブ定義 (`your-job-definition-sample1`) のコマンド例:
-`["poetry", "run", "batch-cli", "sample1"]`
-
-ジョブ送信コマンド (パラメータは環境変数として渡される想定):
+メインリポジトリから他のリポジトリを参照するためにGit Submodulesを使用できます。
 
 ```bash
-aws batch submit-job \
-    --job-name MyBatchJobSample1 \
-    --job-queue your-job-queue \
-    --job-definition your-job-definition-sample1 \
-    --container-overrides '{"environment":[{"name":"INPUT_PATH","value":"s3://your-bucket/input/sample1_data.csv"},{"name":"OUTPUT_PATH","value":"s3://your-bucket/output/sample1.csv"},{"name":"BATCH_SIZE","value":"200"},{"name":"DEBUG","value":"false"}]}'
+# メインリポジトリのルートディレクトリで実行
+git submodule add https://github.com/your-org/repo1.git lib/repo1
+git submodule add https://github.com/your-org/repo2.git lib/repo2
+git submodule update --init --recursive
 ```
 
-_同様に `sample2`, `sample3` 用のジョブ定義と実行コマンドを作成します。_
+Dockerfileの例:
+```Dockerfile
+FROM python:3.9
 
-## Pandera スキーマの拡張
+# リポジトリをコピー（サブモジュールを含む）
+COPY . /app
+WORKDIR /app
 
-新しいデータ形式に対応するには、`src/schemas.py` にスキーマ定義を追加します。新しいスキーマを作成する手順:
+# サブモジュールのセットアップ
+RUN git submodule update --init --recursive
 
-1. `pa.SchemaModel`を継承した新しいクラスを定義
-2. 各列のデータ型と検証ルールを定義
-3. 必要に応じてカスタム検証関数を追加
-4. スキーマを使用する検証関数を作成
+# 各リポジトリの依存関係をインストール
+RUN pip install -r lib/repo1/requirements.txt
+RUN pip install -r lib/repo2/requirements.txt
 
-例:
+# メインスクリプトを実行
+ENTRYPOINT ["python", "src/main.py"]
+```
+
+メインスクリプト例（`src/main.py`）:
+```python
+import sys
+import os
+
+# サブモジュールをimport可能にする
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'lib', 'repo1'))
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'lib', 'repo2'))
+
+# 各リポジトリのモジュールをインポート
+from repo1.module import function1
+from repo2.module import function2
+
+def run_pipeline():
+    # 両方のリポジトリの機能を組み合わせたパイプライン処理
+    function1()
+    function2()
+
+if __name__ == "__main__":
+    run_pipeline()
+```
+
+#### メリット
+- リポジトリのバージョン管理が明示的
+- 単一のリポジトリで開発することができる
+- モジュール間の相互参照が容易
+
+#### デメリット
+- サブモジュールの管理が複雑になる可能性がある
+- サブモジュールの更新が煩雑になることがある
+
+### 3. 実行時にコードをダウンロード
+
+ジョブ実行時に必要なリポジトリをダウンロードするスクリプトを作成できます：
 
 ```python
-import pandera as pa
-from pandera.typing import DataFrame, Series # 追加
+import os
+import sys
+import subprocess
+import argparse
 
-class NewDataSchema(pa.SchemaModel):
-    column1: Series[int] = pa.Field(gt=0)
-    column2: Series[str] = pa.Field(str_length={'min': 1, 'max': 100})
+def setup_repos():
+    """必要なリポジトリをクローンしセットアップする"""
+    # 作業ディレクトリを作成
+    os.makedirs("/tmp/workspace", exist_ok=True)
+    
+    # リポジトリ1をクローン
+    repo1_path = "/tmp/workspace/repo1"
+    if not os.path.exists(repo1_path):
+        subprocess.run([
+            "git", "clone", 
+            "https://github.com/your-org/repo1.git", 
+            repo1_path
+        ], check=True)
+    
+    # リポジトリ2をクローン
+    repo2_path = "/tmp/workspace/repo2"
+    if not os.path.exists(repo2_path):
+        subprocess.run([
+            "git", "clone", 
+            "https://github.com/your-org/repo2.git", 
+            repo2_path
+        ], check=True)
+    
+    # 依存関係をインストール
+    subprocess.run([
+        "pip", "install", "-r", 
+        os.path.join(repo1_path, "requirements.txt")
+    ], check=True)
+    
+    subprocess.run([
+        "pip", "install", "-r", 
+        os.path.join(repo2_path, "requirements.txt")
+    ], check=True)
+    
+    # PYTHONPATHを更新
+    sys.path.append(repo1_path)
+    sys.path.append(repo2_path)
+    os.environ["PYTHONPATH"] = f"{os.environ.get('PYTHONPATH', '')}:{repo1_path}:{repo2_path}"
+    
+    print(f"Repositories set up successfully in {'/tmp/workspace'}")
+    return repo1_path, repo2_path
 
-    @pa.check("column1")
-    def validate_column1(cls, column1: Series) -> Series:
-        # カスタム検証ロジック
-        return column1 % 2 == 0  # 偶数のみ許可する例
+def run_pipeline():
+    """パイプライン処理を実行する"""
+    # リポジトリをセットアップ
+    repo1_path, repo2_path = setup_repos()
+    
+    # ここで各リポジトリのモジュールをインポート
+    sys.path.append(repo1_path)
+    sys.path.append(repo2_path)
+    
+    from repo1.src.module import function1
+    from repo2.src.module import function2
+    
+    # 処理を実行
+    function1()
+    function2()
+    
+    print("Pipeline execution completed")
 
-@pa.check_types
-def validate_new_data(df: DataFrame[NewDataSchema]) -> DataFrame[NewDataSchema]:
-    return df
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Run pipeline using multiple repositories")
+    parser.add_argument("--config", help="Path to configuration file")
+    args = parser.parse_args()
+    
+    # 設定ファイルが指定されている場合はそれを使用
+    if args.config:
+        print(f"Using configuration from {args.config}")
+    
+    run_pipeline()
 ```
+
+#### メリット
+- 柔軟に最新のコードを取得できる
+- リポジトリが大きすぎる場合にコンテナイメージサイズを削減できる
+- リポジトリのブランチやコミットハッシュを動的に指定できる
+
+#### デメリット
+- 実行時間が長くなる可能性がある（クローン処理のため）
+- ネットワーク接続やGitリポジトリへのアクセス権が必要
+- 実行時の依存関係に問題が発生する可能性がある
+
+### 4. AWS CodeArtifactを使用したプライベートパッケージ管理
+
+各リポジトリをプライベートPythonパッケージとしてAWS CodeArtifactに公開し、依存関係として利用する方法：
+
+1. 各リポジトリをパッケージ化：
+   ```bash
+   # setup.pyを作成し、パッケージをビルド
+   python setup.py sdist bdist_wheel
+   
+   # AWS CodeArtifactにパッケージをアップロード
+   pip install twine
+   export AWS_CODEARTIFACT_TOKEN=$(aws codeartifact get-authorization-token --domain your-domain --domain-owner YOUR_AWS_ACCOUNT_ID --query authorizationToken --output text)
+   twine upload --repository-url https://your-domain-YOUR_AWS_ACCOUNT_ID.d.codeartifact.region.amazonaws.com/pypi/your-repo/ dist/*
+   ```
+
+2. バッチジョブのDockerfileでパッケージをインストール：
+   ```Dockerfile
+   FROM python:3.9
+   
+   # AWS CodeArtifactの認証設定
+   RUN pip install awscli
+   RUN aws configure set region your-region
+   
+   # プライベートパッケージをインストール
+   RUN AWS_CODEARTIFACT_TOKEN=$(aws codeartifact get-authorization-token --domain your-domain --domain-owner YOUR_AWS_ACCOUNT_ID --query authorizationToken --output text) \
+       pip install --index-url https://aws:$AWS_CODEARTIFACT_TOKEN@your-domain-YOUR_AWS_ACCOUNT_ID.d.codeartifact.region.amazonaws.com/pypi/your-repo/simple/ \
+       repo1-package repo2-package
+   
+   # アプリケーションコードをコピー
+   COPY . /app
+   WORKDIR /app
+   
+   # エントリポイント
+   ENTRYPOINT ["python", "main.py"]
+   ```
+
+3. アプリケーションコードで各パッケージを利用：
+   ```python
+   # 各パッケージからモジュールをインポート
+   from repo1_package import module1
+   from repo2_package import module2
+   
+   def run_pipeline():
+       # 両方のパッケージの機能を利用
+       module1.function1()
+       module2.function2()
+   
+   if __name__ == "__main__":
+       run_pipeline()
+   ```
+
+#### メリット
+- モジュール化されたアプローチで各リポジトリを独立して管理
+- バージョン管理が明示的でシンプル
+- 依存関係の解決がPythonのパッケージマネージャに任せられる
+- コードの再利用が容易
+
+#### デメリット
+- 初期設定が複雑
+- パッケージのビルドとアップロードのプロセスが必要
+- AWS CodeArtifactの費用が発生
+
+### 選択ガイド
+
+以下の基準でアプローチを選択すると良いでしょう：
+
+1. **シンプルさ重視の場合**：「Dockerイメージ内に複数リポジトリを含める」方法
+2. **バージョン管理重視の場合**：「Git Submodules」方法
+3. **柔軟性重視の場合**：「実行時にコードをダウンロード」方法
+4. **大規模プロジェクト向け**：「AWS CodeArtifactを使用したプライベートパッケージ管理」方法
+
+実際のニーズに応じてこれらの方法を組み合わせることも可能です。例えば、主要なコードはCodeArtifactパッケージとして管理し、頻繁に変更される設定スクリプトはGit Submodulesとして管理するなどの組み合わせが考えられます。

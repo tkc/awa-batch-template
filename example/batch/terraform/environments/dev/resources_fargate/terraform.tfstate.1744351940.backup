@@ -1,0 +1,330 @@
+{
+  "version": 4,
+  "terraform_version": "1.5.7",
+  "serial": 28,
+  "lineage": "79527bac-04b4-43be-962d-48a33b861e44",
+  "outputs": {},
+  "resources": [
+    {
+      "mode": "data",
+      "type": "terraform_remote_state",
+      "name": "network",
+      "provider": "provider[\"terraform.io/builtin/terraform\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "backend": "local",
+            "config": {
+              "value": {
+                "path": "../network/terraform.tfstate"
+              },
+              "type": [
+                "object",
+                {
+                  "path": "string"
+                }
+              ]
+            },
+            "defaults": null,
+            "outputs": {
+              "value": {
+                "nat_gateway_ids": [
+                  "nat-00838e7bcd827f160",
+                  "nat-01b0f5e615d79a08f"
+                ],
+                "private_subnet_ids": [
+                  "subnet-08fe5f0f7144d6d43",
+                  "subnet-079c967ae42cc85ec"
+                ],
+                "public_subnet_ids": [
+                  "subnet-0d4cc873f31f55217",
+                  "subnet-0520b906767d21abd"
+                ],
+                "vpc_cidr_block": "10.0.0.0/16",
+                "vpc_endpoint_security_group_id": "sg-0657e2608b13ea47e",
+                "vpc_id": "vpc-06a247bc95c7722e1"
+              },
+              "type": [
+                "object",
+                {
+                  "nat_gateway_ids": [
+                    "tuple",
+                    [
+                      "string",
+                      "string"
+                    ]
+                  ],
+                  "private_subnet_ids": [
+                    "tuple",
+                    [
+                      "string",
+                      "string"
+                    ]
+                  ],
+                  "public_subnet_ids": [
+                    "tuple",
+                    [
+                      "string",
+                      "string"
+                    ]
+                  ],
+                  "vpc_cidr_block": "string",
+                  "vpc_endpoint_security_group_id": "string",
+                  "vpc_id": "string"
+                }
+              ]
+            },
+            "workspace": null
+          },
+          "sensitive_attributes": []
+        }
+      ]
+    },
+    {
+      "module": "module.resources_fargate",
+      "mode": "managed",
+      "type": "aws_batch_compute_environment",
+      "name": "fargate",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "arn": "arn:aws:batch:ap-northeast-1:950534109392:compute-environment/awa-batch-dev-fargate",
+            "compute_environment_name": "awa-batch-dev-fargate",
+            "compute_environment_name_prefix": "",
+            "compute_resources": [
+              {
+                "allocation_strategy": "",
+                "bid_percentage": 0,
+                "desired_vcpus": 0,
+                "ec2_configuration": [],
+                "ec2_key_pair": "",
+                "image_id": "",
+                "instance_role": "",
+                "instance_type": [],
+                "launch_template": [],
+                "max_vcpus": 4,
+                "min_vcpus": 0,
+                "placement_group": "",
+                "security_group_ids": [
+                  "sg-06e2e8dd1aaae9d40"
+                ],
+                "spot_iam_fleet_role": "",
+                "subnets": [
+                  "subnet-079c967ae42cc85ec",
+                  "subnet-08fe5f0f7144d6d43"
+                ],
+                "tags": {},
+                "type": "FARGATE"
+              }
+            ],
+            "ecs_cluster_arn": "arn:aws:ecs:ap-northeast-1:950534109392:cluster/awa-batch-dev-fargate_Batch_c9f54eb6-f867-3632-9db2-400918c1abd8",
+            "eks_configuration": [],
+            "id": "awa-batch-dev-fargate",
+            "service_role": "arn:aws:iam::950534109392:role/awa-batch-dev-batch-fargate-service-role",
+            "state": "ENABLED",
+            "status": "VALID",
+            "status_reason": "ComputeEnvironment Healthy",
+            "tags": {
+              "Environment": "dev",
+              "ManagedBy": "terraform",
+              "Name": "awa-batch-dev-fargate-compute-env",
+              "Platform": "Fargate",
+              "Project": "awa-batch"
+            },
+            "tags_all": {
+              "Environment": "dev",
+              "ManagedBy": "terraform",
+              "Name": "awa-batch-dev-fargate-compute-env",
+              "Platform": "Fargate",
+              "Project": "awa-batch"
+            },
+            "type": "MANAGED",
+            "update_policy": []
+          },
+          "sensitive_attributes": [],
+          "private": "bnVsbA==",
+          "dependencies": [
+            "data.terraform_remote_state.network",
+            "module.resources_fargate.aws_iam_role.batch_service_role",
+            "module.resources_fargate.aws_security_group.batch_compute_environment"
+          ]
+        }
+      ]
+    },
+    {
+      "module": "module.resources_fargate",
+      "mode": "managed",
+      "type": "aws_batch_compute_environment",
+      "name": "fargate_spot",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "arn": "arn:aws:batch:ap-northeast-1:950534109392:compute-environment/awa-batch-dev-fargate-spot",
+            "compute_environment_name": "awa-batch-dev-fargate-spot",
+            "compute_environment_name_prefix": "",
+            "compute_resources": [
+              {
+                "allocation_strategy": "",
+                "bid_percentage": 0,
+                "desired_vcpus": 0,
+                "ec2_configuration": [],
+                "ec2_key_pair": "",
+                "image_id": "",
+                "instance_role": "",
+                "instance_type": [],
+                "launch_template": [],
+                "max_vcpus": 4,
+                "min_vcpus": 0,
+                "placement_group": "",
+                "security_group_ids": [
+                  "sg-06e2e8dd1aaae9d40"
+                ],
+                "spot_iam_fleet_role": "",
+                "subnets": [
+                  "subnet-079c967ae42cc85ec",
+                  "subnet-08fe5f0f7144d6d43"
+                ],
+                "tags": {},
+                "type": "FARGATE_SPOT"
+              }
+            ],
+            "ecs_cluster_arn": "arn:aws:ecs:ap-northeast-1:950534109392:cluster/awa-batch-dev-fargate-spot_Batch_ab8c4b15-1ecd-3832-a1c7-a95f79d0f2bf",
+            "eks_configuration": [],
+            "id": "awa-batch-dev-fargate-spot",
+            "service_role": "arn:aws:iam::950534109392:role/awa-batch-dev-batch-fargate-service-role",
+            "state": "ENABLED",
+            "status": "VALID",
+            "status_reason": "ComputeEnvironment Healthy",
+            "tags": {
+              "Environment": "dev",
+              "ManagedBy": "terraform",
+              "Name": "awa-batch-dev-fargate-spot-compute-env",
+              "Platform": "Fargate",
+              "Project": "awa-batch"
+            },
+            "tags_all": {
+              "Environment": "dev",
+              "ManagedBy": "terraform",
+              "Name": "awa-batch-dev-fargate-spot-compute-env",
+              "Platform": "Fargate",
+              "Project": "awa-batch"
+            },
+            "type": "MANAGED",
+            "update_policy": []
+          },
+          "sensitive_attributes": [],
+          "private": "bnVsbA==",
+          "dependencies": [
+            "data.terraform_remote_state.network",
+            "module.resources_fargate.aws_iam_role.batch_service_role",
+            "module.resources_fargate.aws_security_group.batch_compute_environment"
+          ]
+        }
+      ]
+    },
+    {
+      "module": "module.resources_fargate",
+      "mode": "managed",
+      "type": "aws_iam_role",
+      "name": "batch_service_role",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "arn": "arn:aws:iam::950534109392:role/awa-batch-dev-batch-fargate-service-role",
+            "assume_role_policy": "{\"Statement\":[{\"Action\":\"sts:AssumeRole\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"batch.amazonaws.com\"}}],\"Version\":\"2012-10-17\"}",
+            "create_date": "2025-04-11T06:01:43Z",
+            "description": "",
+            "force_detach_policies": false,
+            "id": "awa-batch-dev-batch-fargate-service-role",
+            "inline_policy": [],
+            "managed_policy_arns": [],
+            "max_session_duration": 3600,
+            "name": "awa-batch-dev-batch-fargate-service-role",
+            "name_prefix": "",
+            "path": "/",
+            "permissions_boundary": "",
+            "tags": {
+              "Environment": "dev",
+              "ManagedBy": "terraform",
+              "Platform": "Fargate",
+              "Project": "awa-batch"
+            },
+            "tags_all": {
+              "Environment": "dev",
+              "ManagedBy": "terraform",
+              "Platform": "Fargate",
+              "Project": "awa-batch"
+            },
+            "unique_id": "AROA52UB7PDIPUP5CWBWU"
+          },
+          "sensitive_attributes": [],
+          "private": "bnVsbA=="
+        }
+      ]
+    },
+    {
+      "module": "module.resources_fargate",
+      "mode": "managed",
+      "type": "aws_security_group",
+      "name": "batch_compute_environment",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 1,
+          "attributes": {
+            "arn": "arn:aws:ec2:ap-northeast-1:950534109392:security-group/sg-06e2e8dd1aaae9d40",
+            "description": "Security group for AWS Batch Fargate compute environment",
+            "egress": [
+              {
+                "cidr_blocks": [
+                  "0.0.0.0/0"
+                ],
+                "description": "",
+                "from_port": 0,
+                "ipv6_cidr_blocks": [],
+                "prefix_list_ids": [],
+                "protocol": "-1",
+                "security_groups": [],
+                "self": false,
+                "to_port": 0
+              }
+            ],
+            "id": "sg-06e2e8dd1aaae9d40",
+            "ingress": [],
+            "name": "awa-batch-dev-batch-fargate-sg",
+            "name_prefix": "",
+            "owner_id": "950534109392",
+            "revoke_rules_on_delete": false,
+            "tags": {
+              "Environment": "dev",
+              "ManagedBy": "terraform",
+              "Platform": "Fargate",
+              "Project": "awa-batch"
+            },
+            "tags_all": {
+              "Environment": "dev",
+              "ManagedBy": "terraform",
+              "Platform": "Fargate",
+              "Project": "awa-batch"
+            },
+            "timeouts": null,
+            "vpc_id": "vpc-06a247bc95c7722e1"
+          },
+          "sensitive_attributes": [],
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjo2MDAwMDAwMDAwMDAsImRlbGV0ZSI6OTAwMDAwMDAwMDAwfSwic2NoZW1hX3ZlcnNpb24iOiIxIn0=",
+          "dependencies": [
+            "data.terraform_remote_state.network"
+          ]
+        }
+      ]
+    }
+  ],
+  "check_results": null
+}

@@ -1,102 +1,134 @@
-import json
 from pathlib import Path
 
 import pytest
+from batch_processor.errors import (
+    ProcessingError,
+)
+from batch_processor.main import sample1
+from batch_processor.models import Sample1Params
+from pydantic import ValidationError
 
-from src.main import sample1  # batch_job. -> src.
-from src.models import Sample1Params  # batch_job. -> src.
-
-SAMPLE_DATA_DIR = Path(__file__).parent.parent / "samples"
+# Define path to sample data relative to this test file
+SAMPLE_DATA_DIR = Path(__file__).parent.parent / "data"
 VALID_CSV = SAMPLE_DATA_DIR / "sample1_data.csv"
-INVALID_CSV_SCORE = SAMPLE_DATA_DIR / "sample1_invalid_score.csv"
-PARAMS_JSON = SAMPLE_DATA_DIR / "params_sample1.json"
 
 
-@pytest.fixture(scope="module", autouse=True)
-def create_invalid_csv():
-    invalid_data = """id,name,age,score
-1,Alice,20,150.0
-2,Bob,22,-10.5
-"""
-    INVALID_CSV_SCORE.write_text(invalid_data)
-    yield
-    INVALID_CSV_SCORE.unlink()
+# Fixture for invalid CSV (schema violation)
+@pytest.fixture
+def invalid_schema_csv(tmp_path):
+    invalid_data = (
+        "id,name,age,score\n1,Alice,twenty,100"  # age is not int, score is ok
+    )
+    file_path = tmp_path / "invalid_schema.csv"
+    file_path.write_text(invalid_data)
+    return str(file_path)
 
 
-def test_sample1_valid_data_from_json(log_stream):
-    """正常なデータとJSONパラメータでsample1を実行"""
-    with open(PARAMS_JSON) as f:
-        params_dict = json.load(f)
-    params_dict["input_path"] = str(VALID_CSV)
-    params = Sample1Params(**params_dict)
+# Fixture for invalid CSV format (not CSV)
+@pytest.fixture
+def invalid_format_csv(tmp_path):
+    file_path = tmp_path / "invalid_format.txt"
+    file_path.write_text("this is not a csv file")
+    return str(file_path)
 
+
+def test_sample1_success(log):
+    """正常なパラメータと有効なCSVでsample1を実行"""
+    params = Sample1Params(process_id="test_success", csv_path=str(VALID_CSV))
     sample1(params)
-
-    log_output = log_stream.getvalue()
-    assert "sample1コマンドを実行します" in log_output
-    assert "データ検証に成功しました" in log_output
-
-
-def test_sample1_valid_data_with_filters(log_stream):
-    """フィルタリング条件付きで正常なデータでsample1を実行"""
-    params_dict = {
-        "input_path": str(VALID_CSV),
-        "output_path": "output/test_filter_output.csv",
-        "min_score": 80,
-        "max_age": 21,
-        "target_grades": [1],
-    }
-    params = Sample1Params(**params_dict)
-
-    sample1(params)
-
-    log_output = log_stream.getvalue()
-    assert "sample1コマンドを実行します" in log_output
-    assert "データ検証に成功しました" in log_output
+    # pytest-structlog の log フィクスチャでログを検証
+    assert log.has("sample1処理を開始します", process_id="test_success")
+    assert log.has(f"入力CSVファイル: {VALID_CSV}", process_id="test_success")
+    assert log.has("データ検証に成功しました", process_id="test_success")
+    assert log.has("sample1処理が正常に完了しました", process_id="test_success")
 
 
-def test_sample1_invalid_schema(log_stream):
-    """スキーマ違反のデータでsample1を実行"""
-    params_dict = {
-        "input_path": str(INVALID_CSV_SCORE),
-        "output_path": "output/test_invalid_schema_output.csv",
-    }
-    params = Sample1Params(**params_dict)
+def test_sample1_missing_value():
+    """必須パラメータ 'csv_path' または 'process_id' が欠けている場合にエラーが発生するか"""
+    with pytest.raises(ValidationError) as excinfo:
+        _ = Sample1Params(process_id="test_missing_csv")  # csv_path is missing
+    assert "csv_path" in str(excinfo.value)
+    assert "Field required" in str(excinfo.value)
 
-    sample1(params)
-
-    log_output = log_stream.getvalue()
-    # Check for the core message, allowing for additional details
-    assert "データ検証に失敗しました" in log_output
-    assert "SchemaError" in log_output  # Keep checking for SchemaError details
-
-
-def test_sample1_file_not_found(log_stream):
-    """存在しない入力ファイルでsample1を実行"""
-    params_dict = {
-        "input_path": "non_existent_file.csv",
-        "output_path": "output/test_not_found_output.csv",
-    }
-    params = Sample1Params(**params_dict)
-
-    sample1(params)
-
-    log_output = log_stream.getvalue()
-    # Check for the core message, allowing for additional details
-    assert "sample1 処理中に予期せぬエラーが発生しました" in log_output
-    assert (
-        "FileNotFoundError" in log_output
-    )  # Keep checking for FileNotFoundError details
+    with pytest.raises(ValidationError) as excinfo:
+        _ = Sample1Params(csv_path="dummy.csv")  # process_id is missing
+    assert "process_id" in str(excinfo.value)
+    assert "Field required" in str(excinfo.value)
 
 
 def test_sample1_invalid_param_type():
     """不正な型のパラメータでモデル作成時にエラーが発生するか"""
-    invalid_params_dict = {
-        "input_path": str(VALID_CSV),
-        "output_path": "output/test_invalid_type_output.csv",
-        "min_score": "eighty",
-    }
-    with pytest.raises(ValueError) as excinfo:
-        _ = Sample1Params(**invalid_params_dict)
+    with pytest.raises(ValidationError) as excinfo:
+        _ = Sample1Params(
+            process_id="test_invalid_type", csv_path=123
+        )  # csv_path is int
+    assert "csv_path" in str(excinfo.value)
+    assert "Input should be a valid string" in str(excinfo.value)
 
-    assert "min_score" in str(excinfo.value)
+    with pytest.raises(ValidationError) as excinfo:
+        _ = Sample1Params(process_id=123, csv_path="dummy.csv")  # process_id is int
+    assert "process_id" in str(excinfo.value)
+    assert "Input should be a valid string" in str(excinfo.value)
+
+
+def test_sample1_file_not_found(log):
+    """存在しないCSVファイルパスでsample1を実行し、ProcessingErrorが発生するか"""
+    params = Sample1Params(
+        process_id="test_not_found", csv_path="non_existent_file.csv"
+    )
+    # Expect ProcessingError because main.py wraps FileNotFoundError
+    with pytest.raises(ProcessingError) as excinfo:
+        sample1(params)
+    # Check the wrapped exception message
+    assert "No such file or directory: 'non_existent_file.csv'" in str(excinfo.value)
+    # Check for the specific log message indicating the wrapped error
+    assert log.has(
+        "データ処理中に予期せぬエラーが発生しました",
+        process_id="test_not_found",
+        level="error",
+    )
+    # Optionally check if the original exception type is mentioned in the log event's details
+    # This depends on how structlog is configured to handle exceptions
+    # assert any("FileNotFoundError" in event.get("exception", "") for event in log.events)
+
+
+def test_sample1_invalid_format(log, invalid_format_csv):
+    """不正な形式のCSVファイルでsample1を実行し、ProcessingErrorが発生するか"""
+    params = Sample1Params(
+        process_id="test_invalid_format", csv_path=invalid_format_csv
+    )
+    # Expect ProcessingError because SchemaError during validation is wrapped
+    with pytest.raises(ProcessingError) as excinfo:
+        sample1(params)
+    # Check the wrapped exception message
+    assert "column 'this is not a csv file' not in DataFrameSchema" in str(
+        excinfo.value
+    )
+    # Check for the specific log message indicating the wrapped error
+    assert log.has(
+        "データ処理中に予期せぬエラーが発生しました",
+        process_id="test_invalid_format",
+        level="error",
+    )
+    # Optionally check if the original exception type is mentioned
+    # assert any("pandera.errors.SchemaError" in event.get("exception", "") for event in log.events)
+
+
+def test_sample1_invalid_schema(log, invalid_schema_csv):
+    """スキーマ違反のCSVでsample1を実行し、ProcessingErrorが発生するか"""
+    params = Sample1Params(
+        process_id="test_invalid_schema", csv_path=invalid_schema_csv
+    )
+    # Expect ProcessingError because SchemaError during validation is wrapped
+    with pytest.raises(ProcessingError) as excinfo:
+        sample1(params)
+    # Check the wrapped exception message
+    assert "Error while coercing 'age' to type int64" in str(excinfo.value)
+    # Check for the specific log message indicating the wrapped error
+    assert log.has(
+        "データ処理中に予期せぬエラーが発生しました",
+        process_id="test_invalid_schema",
+        level="error",
+    )
+    # Optionally check if the original exception type is mentioned
+    # assert any("pandera.errors.SchemaError" in event.get("exception", "") for event in log.events)
