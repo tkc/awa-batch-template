@@ -14,7 +14,7 @@ terraform {
 
 provider "aws" {
   region = var.aws_region
-  
+
   default_tags {
     tags = {
       Environment = var.environment
@@ -52,20 +52,20 @@ locals {
 module "resources_fargate" {
   source = "../../../modules/resources_fargate"
 
-  aws_region                = var.aws_region
-  environment               = var.environment
-  project_name              = var.project_name
-  vpc_id                    = data.terraform_remote_state.network.outputs.vpc_id
-  private_subnet_ids        = data.terraform_remote_state.network.outputs.private_subnet_ids
-  batch_job_role_arn        = data.terraform_remote_state.iam.outputs.batch_job_role_arn
-  ecr_repository_name       = var.ecr_repository_name
-  container_image           = var.container_image
-  batch_job_definition_name = var.batch_job_definition_name
-  batch_job_queue_name      = var.batch_job_queue_name
+  aws_region                     = var.aws_region
+  environment                    = var.environment
+  project_name                   = var.project_name
+  vpc_id                         = data.terraform_remote_state.network.outputs.vpc_id
+  private_subnet_ids             = data.terraform_remote_state.network.outputs.private_subnet_ids
+  batch_job_role_arn             = data.terraform_remote_state.iam.outputs.batch_job_role_arn
+  ecr_repository_name            = var.ecr_repository_name
+  container_image                = var.container_image
+  batch_job_definition_name      = var.batch_job_definition_name
+  batch_job_queue_name           = var.batch_job_queue_name
   batch_compute_environment_name = var.batch_compute_environment_name
-  max_vcpus                 = var.max_vcpus
-  fargate_vcpu              = var.fargate_vcpu
-  fargate_memory            = var.fargate_memory
-  common_env_var_value      = var.common_env_var_value
-  common_tags               = local.common_tags
+  max_vcpus                      = var.max_vcpus
+  fargate_vcpu                   = var.fargate_vcpu
+  fargate_memory                 = var.fargate_memory
+  common_env_var_value           = var.common_env_var_value
+  common_tags                    = local.common_tags
 }

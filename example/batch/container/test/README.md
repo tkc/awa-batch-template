@@ -21,7 +21,7 @@
 
 ## 使用方法
 
-### 1. Docker イメージのビルドとプッシュ
+### Docker イメージのビルドとプッシュ
 
 以下のコマンドを実行して、Docker イメージをビルドし、ECR にプッシュします：
 
@@ -34,6 +34,26 @@
 - AWS ECR へのログイン
 - Docker イメージのビルド（x86_64 アーキテクチャ向け）
 - ECR へのイメージプッシュ
+
+## 受け取ったパラメータのサンプル
+
+```json
+{
+  "inputFile": "s3://example-bucket/input/data.csv",
+  "outputPath": "s3://example-bucket/output/",
+  "settings": {
+    "batchSize": 64,
+    "modelType": "classification",
+    "maxIterations": 100,
+    "learningRate": 0.01
+  },
+  "metadata": {
+    "jobType": "batch-processing",
+    "version": "1.0.0",
+    "description": "サンプルバッチ処理ジョブ"
+  }
+}
+```
 
 ## 関連リソース
 
