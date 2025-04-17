@@ -27,6 +27,9 @@ COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/pytho
 # Copy the batch run script from the current context
 COPY run_batch.py /app/run_batch.py
 
+# Debug: Print all content of run_batch.py during build to verify content
+RUN cat /app/run_batch.py
+
 # Debug: Print the architecture to the logs at startup
 RUN echo "Container architecture: $(uname -m)"
 

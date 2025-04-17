@@ -1,6 +1,0 @@
-{
-  "input_file": "s3://my-bucket/data.csv",
-  "output_path": "s3://my-bucket/results/",
-  "debug_mode": "true",
-  "max_retry": "3"
-}

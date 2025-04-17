@@ -1,0 +1,15 @@
+{
+  "inputFile": "s3://example-bucket/input/data.csv",
+  "outputPath": "s3://example-bucket/output/",
+  "settings": {
+    "batchSize": 64,
+    "modelType": "classification",
+    "maxIterations": 100,
+    "learningRate": 0.01
+  },
+  "metadata": {
+    "jobType": "batch-processing",
+    "version": "1.0.0",
+    "description": "サンプルバッチ処理ジョブ"
+  }
+}

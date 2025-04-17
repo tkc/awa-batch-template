@@ -88,3 +88,94 @@ variable "common_tags" {
   type        = map(string)
   default     = {}
 }
+
+# 新しい変数
+variable "log_retention_days" {
+  description = "Number of days to retain log events in CloudWatch Logs"
+  type        = number
+  default     = 14
+}
+
+variable "kms_key_arn" {
+  description = "ARN of KMS key to encrypt CloudWatch logs (optional)"
+  type        = string
+  default     = null
+}
+
+variable "scheduling_policy_arn" {
+  description = "ARN of the fair share scheduling policy to use for job queues (optional)"
+  type        = string
+  default     = null
+}
+
+variable "assign_public_ip" {
+  description = "Whether to assign a public IP to Fargate tasks"
+  type        = bool
+  default     = false
+}
+
+variable "fargate_platform_version" {
+  description = "The Fargate platform version to use (LATEST or 1.4.0)"
+  type        = string
+  default     = "LATEST"
+}
+
+variable "retry_attempts" {
+  description = "The number of times to retry a job before considering it failed"
+  type        = number
+  default     = 3
+}
+
+variable "retry_exit_conditions" {
+  description = "A list of retry strategy conditions"
+  type = list(object({
+    action           = string
+    on_reason        = optional(string)
+    on_exit_code     = optional(number)
+    on_status_reason = optional(string)
+  }))
+  default = [
+    {
+      action       = "RETRY"
+      on_reason    = "*"
+      on_exit_code = 1
+    },
+    {
+      action       = "EXIT"
+      on_exit_code = 0
+    }
+  ]
+}
+
+variable "container_command" {
+  description = "The command to pass to the container"
+  type        = list(string)
+  default     = []
+}
+
+variable "container_mount_points" {
+  description = "Mount points for the container"
+  type        = list(any)
+  default     = []
+}
+
+variable "container_volumes" {
+  description = "Volumes for the container"
+  type        = list(any)
+  default     = []
+}
+
+variable "container_log_secrets" {
+  description = "Secret options for container logs configuration"
+  type        = list(any)
+  default     = []
+}
+
+variable "additional_environment_variables" {
+  description = "Additional environment variables to pass to the container"
+  type = list(object({
+    name  = string
+    value = string
+  }))
+  default = []
+}

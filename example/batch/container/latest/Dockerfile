@@ -14,10 +14,10 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 WORKDIR /app
 
 # Copy dependency definition files
-COPY pyproject.toml uv.lock ./
+COPY pyproject.toml ./
 
 # Install dependencies using uv and the lockfile
-RUN uv sync --frozen --no-install-project
+RUN uv sync --no-install-project
 
 # Stage 2: Runtime stage - Create the final image
 FROM --platform=linux/amd64 python:3.12-slim as runtime
