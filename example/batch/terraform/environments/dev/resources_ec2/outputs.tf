@@ -22,8 +22,3 @@ output "high_priority_job_queue_arn" {
   description = "ARN of the high priority job queue"
   value       = module.resources.high_priority_job_queue_arn
 }
-
-output "low_priority_job_queue_arn" {
-  description = "ARN of the low priority job queue"
-  value       = module.resources.low_priority_job_queue_arn
-}

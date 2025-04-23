@@ -107,23 +107,21 @@ module "batch" {
     "arn:aws:iam::aws:policy/service-role/AWSBatchServiceRole"
   ]
 
-  # スポットフリートロール作成（スポットインスタンスを使用する場合）
-  # スポットインスタンスを使用してコスト削減を図る場合に必要なロール
-  create_spot_fleet_iam_role      = true
-  spot_fleet_iam_role_name        = "${local.name_prefix}-batch-spot-fleet-role"
-  spot_fleet_iam_role_path        = "/"
-  spot_fleet_iam_role_description = "IAM role for AWS Batch spot fleet"
-  spot_fleet_iam_role_tags        = local.common_tags
+  # スポットフリートロールは作成しない
+  create_spot_fleet_iam_role = false
+  # spot_fleet_iam_role_name        = "${local.name_prefix}-batch-spot-fleet-role" # 不要
+  # spot_fleet_iam_role_path        = "/" # 不要
+  # spot_fleet_iam_role_description = "IAM role for AWS Batch spot fleet" # 不要
+  # spot_fleet_iam_role_tags        = local.common_tags # 不要
 
-  # コンピュート環境の定義
-  # 異なるタイプ（オンデマンド/スポット）のコンピュート環境を設定します
+  # コンピュート環境の定義 (オンデマンドのみ)
   compute_environments = {
     # オンデマンド環境（安定性重視の高優先度ジョブ用）
     on_demand = {
       name                  = "${local.name_prefix}-ec2-on-demand"
       type                  = "MANAGED"
       compute_environment_name_prefix = "${local.name_prefix}-ec2-"
-      
+
       # コンピュートリソースの設定
       # オンデマンドEC2インスタンスの具体的な設定を行います
       compute_resources = {
@@ -132,7 +130,7 @@ module "batch" {
         # BEST_FIT_PROGRESSIVEはコスト効率と可用性のバランスを取る配置戦略
         # 最初はコスト効率の良いインスタンスを使い、徐々に別タイプも利用します
         allocation_strategy = "BEST_FIT_PROGRESSIVE"
-        
+
         # vCPUの設定（スケーリング挙動を制御）
         # max_vcpus: 最大スケールアウト時のvCPU数
         # min_vcpus: 常に維持する最小vCPU数（コスト影響あり）
@@ -140,21 +138,21 @@ module "batch" {
         max_vcpus           = var.max_vcpus
         min_vcpus           = var.min_vcpus
         desired_vcpus       = var.desired_vcpus
-        
+
         # 使用するEC2インスタンスタイプのリスト
         # 複数指定することでAWSが最適なタイプを選択できます
         instance_types      = var.instance_types
-        
+
         # インスタンスを配置するプライベートサブネット
         # セキュリティ上、パブリックサブネットではなくプライベートサブネットを使用
         subnets             = var.private_subnet_ids
-        
+
         # インスタンスに適用するセキュリティグループ
         # ネットワークトラフィックの制御に使用します
         security_group_ids  = [
           aws_security_group.batch_compute_environment.id
         ]
-        
+
         # インスタンスに付けるタグ
         # インスタンスを識別しやすくするためのタグを設定
         tags = {
@@ -163,49 +161,10 @@ module "batch" {
         }
       }
     }
-    
-    # スポットインスタンス環境
-    # コスト効率重視の低優先度ジョブ用（最大70%コスト削減の可能性）
-    spot = {
-      name                  = "${local.name_prefix}-ec2-spot"
-      type                  = "MANAGED"
-      compute_environment_name_prefix = "${local.name_prefix}-ec2-"
-      
-      compute_resources = {
-        # SPOTタイプを指定（オンデマンドではなくスポットインスタンスを使用）
-        type                = "SPOT"
-        # SPOT_CAPACITY_OPTIMIZEDは中断リスクが低いスポットキャパシティを優先
-        # これにより、スポットインスタンスの可用性を最大化します
-        allocation_strategy = "SPOT_CAPACITY_OPTIMIZED"
-        # オンデマンド価格の60%を上限として入札
-        # この値を調整することでコスト/可用性のバランスを取れます
-        bid_percentage      = 60
-        
-        max_vcpus           = var.max_vcpus
-        # 最小vCPUとデフォルトvCPUを0に設定
-        # ジョブがない時はインスタンスを起動せず、コストを最小化します
-        min_vcpus           = 0
-        desired_vcpus       = 0
-        
-        instance_types      = var.instance_types
-        
-        subnets             = var.private_subnet_ids
-        
-        security_group_ids  = [
-          aws_security_group.batch_compute_environment.id
-        ]
-        
-        # インスタンスに付けるタグ
-        tags = {
-          Name = "${local.name_prefix}-batch-ec2-spot-instance"
-          Type = "Spot"
-        }
-      }
-    }
+    # スポットインスタンス環境は削除
   }
 
-  # ジョブキューの定義
-  # 優先度の異なる複数のジョブキューを設定します
+  # ジョブキューの定義 (高優先度のみ)
   job_queues = {
     # 高優先度キュー（オンデマンド環境を使用）
     # ビジネス上重要度の高いジョブや即時実行が必要なジョブ向け
@@ -213,48 +172,25 @@ module "batch" {
       name     = "${local.name_prefix}-ec2-high-priority"
       state    = "ENABLED"
       # 優先度は100（数値が大きいほど優先度が高い）
-      # 低優先度キューのジョブより先に処理されます
-      # 優先度は10（高優先度キューより低い値）
-      # 高優先度キューのジョブが優先して処理されます
       priority = 100
       # スケジューリングポリシー
       # null = デフォルトのファーストインファーストアウト（FIFO）スケジューリング
       # フェアシェアポリシーを使用する場合はARNを指定します
       scheduling_policy_arn = null  # ファーストインファーストアウト（FIFO）スケジューリング
-      
-      # コンピュート環境の使用順序
-      # 複数のコンピュート環境を指定した場合の優先順位を定義します
+
+      # コンピュート環境の使用順序 (オンデマンドのみ)
       compute_environment_order = [
         {
           order               = 0
-          compute_environment = "on_demand"
+          compute_environment = "on_demand" # モジュール内のキー名を参照
         }
       ]
-      
+
       tags = {
         JobQueue = "EC2 High priority job queue"
       }
-    },
-    
-    # 低優先度キュー（スポット環境を使用）
-    # コスト効率重視のジョブや、実行時間に余裕があるバッチ処理向け
-    low_priority = {
-      name     = "${local.name_prefix}-ec2-low-priority"
-      state    = "ENABLED"
-      priority = 10
-      scheduling_policy_arn = null  # ファーストインファーストアウト（FIFO）スケジューリング
-      
-      compute_environment_order = [
-        {
-          order               = 0
-          compute_environment = "spot"
-        }
-      ]
-      
-      tags = {
-        JobQueue = "EC2 Low priority job queue"
-      }
     }
+    # 低優先度キューは削除
   }
 
   tags = local.common_tags

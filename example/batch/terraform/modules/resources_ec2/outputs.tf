@@ -33,23 +33,9 @@ output "high_priority_job_queue_arn" {
   value       = module.batch.job_queues["high_priority"].arn
 }
 
-# 低優先度ジョブキューARN
-# 低優先度（スポット）ジョブキューのARNを出力
-output "low_priority_job_queue_arn" {
-  description = "ARN of the EC2 low priority job queue"
-  value       = module.batch.job_queues["low_priority"].arn
-}
-
 # オンデマンドコンピュート環境ARN
 # オンデマンドインスタンスを使用するコンピュート環境のARN
 output "on_demand_compute_environment_arn" {
   description = "ARN of the EC2 on-demand compute environment"
   value       = module.batch.compute_environments["on_demand"].arn
-}
-
-# スポットコンピュート環境ARN
-# コスト効率の高いスポットインスタンスを使用するコンピュート環境のARN
-output "spot_compute_environment_arn" {
-  description = "ARN of the EC2 spot compute environment"
-  value       = module.batch.compute_environments["spot"].arn
 }
