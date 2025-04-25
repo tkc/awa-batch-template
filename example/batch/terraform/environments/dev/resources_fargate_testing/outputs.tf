@@ -28,11 +28,12 @@ output "sample_job_definition_arn" {
   value       = module.resources_fargate.sample_job_definition_arn
 }
 
-output "job_queue_arn" { # 出力名を変更
-  description = "ARN of the Fargate job queue" # 説明を変更
-  value       = module.resources_fargate.job_queue_arn # モジュールの正しい出力名を参照
+output "high_priority_job_queue_arn" {
+  description = "ARN of the Fargate high priority job queue"
+  value       = module.resources_fargate.high_priority_job_queue_arn
 }
 
+# 低優先度ジョブキューの出力は削除されました
 
 output "fargate_compute_environment_arn" {
   description = "ARN of the Fargate compute environment"

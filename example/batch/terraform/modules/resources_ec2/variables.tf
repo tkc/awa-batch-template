@@ -144,3 +144,11 @@ variable "common_tags" {
   # 必要に応じてタグを追加できます（例: Team = "DevOps", CostCenter = "123"）
   default     = {}
 }
+
+# Slack通知用のWebhook URL
+variable "slack_webhook_url" {
+  description = "Slack通知用のWebhook URL"
+  type        = string
+  default     = ""
+  sensitive   = true
+}

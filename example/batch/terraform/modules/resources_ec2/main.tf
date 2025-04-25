@@ -166,12 +166,11 @@ module "batch" {
 
   # ジョブキューの定義 (高優先度のみ)
   job_queues = {
-    # 高優先度キュー（オンデマンド環境を使用）
-    # ビジネス上重要度の高いジョブや即時実行が必要なジョブ向け
-    high_priority = {
-      name     = "${local.name_prefix}-ec2-high-priority"
+    # オンデマンド環境を使用するジョブキュー
+    on_demand_queue = { # キー名を変更
+      name     = "${local.name_prefix}-ec2"
       state    = "ENABLED"
-      # 優先度は100（数値が大きいほど優先度が高い）
+      # 優先度は100（必要に応じて調整）
       priority = 100
       # スケジューリングポリシー
       # null = デフォルトのファーストインファーストアウト（FIFO）スケジューリング
@@ -182,12 +181,12 @@ module "batch" {
       compute_environment_order = [
         {
           order               = 0
-          compute_environment = "on_demand" # モジュール内のキー名を参照
+          compute_environment = "on_demand" # モジュール内の compute_environments のキー名を参照
         }
       ]
 
       tags = {
-        JobQueue = "EC2 High priority job queue"
+        JobQueue = "EC2 job queue" 
       }
     }
     # 低優先度キューは削除

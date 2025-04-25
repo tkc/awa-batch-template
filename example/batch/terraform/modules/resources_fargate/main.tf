@@ -3,8 +3,8 @@
 #
 # このモジュールは、AWS Batch用のFargate環境を構築し、以下のリソースを作成します:
 # - CloudWatch Logsグループ（ログ保存用）
-# - コンピューティング環境（通常のFargateとコスト効率の良いFargate Spot）
-# - ジョブキュー（高優先度と低優先度）
+# - コンピューティング環境（通常のFargateのみ - Spot利用なし）
+# - ジョブキュー（高優先度と低優先度、どちらも通常のFargateを使用）
 # - ジョブ定義（サンプル）
 # - 必要なIAMロール（BatchサービスロールとECS実行ロール）
 # - セキュリティグループ
@@ -54,7 +54,7 @@ data "aws_caller_identity" "current" {}
 # AWS Batchがリソースを管理するために使用するIAMロール
 resource "aws_iam_role" "batch_service_role" {
   name = "${local.name_prefix}-batch-service-role"
-  description = "AWS Batchがユーザーに代わってリソースを管理することを許可するロール"
+  description = "Role that allows AWS Batch to manage resources on your behalf"
   path = "/service-role/"  # サービスロール用の標準パス
 
   # batch.amazonaws.comサービスがこのロールを引き受けることを許可
@@ -125,56 +125,11 @@ resource "aws_batch_compute_environment" "fargate" {
   }
 }
 
-# Fargate Spotのコンピューティング環境
-# スポットインスタンスを使用するFargate環境（コスト削減が可能だが中断リスクあり）
-resource "aws_batch_compute_environment" "fargate_spot" {
-  # 固定名を使用してランダムな接尾辞を避ける
-  compute_environment_name = "${local.name_prefix}-fargate-spot"
-
-  compute_resources {
-    max_vcpus = var.max_vcpus  # 最大vCPU数
-
-    # セキュリティグループ設定
-    security_group_ids = [
-      aws_security_group.batch_compute_environment.id
-    ]
-
-    # 実行するサブネット（プライベートサブネット推奨）
-    subnets = var.private_subnet_ids
-
-    # コンピューティングタイプ（Fargate Spotを使用）
-    type = "FARGATE_SPOT"
-  }
-
-  # Batchサービスが使用するIAMロール
-  service_role = aws_iam_role.batch_service_role.arn
-  
-  # 管理タイプ（AWS Batchによる管理）
-  type         = "MANAGED"
-  
-  # 有効状態に設定
-  state        = "ENABLED"
-  
-  # タグ設定（共通タグに名前タグを追加）
-  tags = merge(
-    local.common_tags,
-    {
-      Name = "${local.name_prefix}-fargate-spot-compute-env"
-    }
-  )
-
-  # 重複作成を避けるためのライフサイクル設定
-  lifecycle {
-    create_before_destroy = true
-  }
-}
-
-# ジョブキュー（通常のFargate、高優先度）
-# 重要なジョブ向けの高優先度キュー
-resource "aws_batch_job_queue" "fargate_high_priority" {
-  name     = "${local.name_prefix}-fargate-high-priority"  # キュー名
+# ジョブキュー（通常のFargate）
+resource "aws_batch_job_queue" "fargate_queue" { # リソース名を変更
+  name     = "${local.name_prefix}-fargate" 
   state    = "ENABLED"                                     # 有効状態
-  priority = 100                                           # 優先度（高いほど優先される）
+  priority = 100                                           # 優先度（必要に応じて調整）
   scheduling_policy_arn = var.scheduling_policy_arn        # スケジューリングポリシー（オプション）
 
   # 使用するコンピューティング環境の順序
@@ -188,7 +143,7 @@ resource "aws_batch_job_queue" "fargate_high_priority" {
   tags = merge(
     local.common_tags,
     {
-      JobQueue = "Fargate High priority job queue"  # キューの種類を示すタグ
+      JobQueue = "Fargate job queue"  # タグから High priority を削除
     }
   )
 
@@ -196,31 +151,7 @@ resource "aws_batch_job_queue" "fargate_high_priority" {
   depends_on = [aws_batch_compute_environment.fargate]
 }
 
-# ジョブキュー（Fargate Spot、低優先度）
-# コスト効率重視のジョブ向けの低優先度キュー
-resource "aws_batch_job_queue" "fargate_low_priority" {
-  name     = "${local.name_prefix}-fargate-low-priority"  # キュー名
-  state    = "ENABLED"                                    # 有効状態
-  priority = 10                                           # 優先度（低い値）
-  scheduling_policy_arn = var.scheduling_policy_arn       # スケジューリングポリシー（オプション）
-
-  # 使用するコンピューティング環境の順序
-  compute_environment_order {
-    order            = 0
-    compute_environment = aws_batch_compute_environment.fargate_spot.arn
-  }
-  
-  # タグ設定
-  tags = merge(
-    local.common_tags,
-    {
-      JobQueue = "Fargate Spot Low priority job queue"  # キューの種類を示すタグ
-    }
-  )
-
-  # コンピューティング環境が先に作成されていることを保証
-  depends_on = [aws_batch_compute_environment.fargate_spot]
-}
+# 低優先度キューは削除しました
 
 #----------------------------------------------------------------------
 # AWS Batch Job Definitions
@@ -338,7 +269,7 @@ resource "aws_batch_job_definition" "fargate_sample" {
 # AWS Batchのコンピューティング環境で使用するセキュリティグループ
 resource "aws_security_group" "batch_compute_environment" {
   name        = "${local.name_prefix}-batch-fargate-sg"
-  description = "AWS Batch Fargateコンピューティング環境用のセキュリティグループ"
+  description = "Security group for AWS Batch Fargate compute environment"
   vpc_id      = var.vpc_id  # VPC ID
 
   # 外部への接続のみ許可（コンテナからの送信トラフィック）
@@ -347,7 +278,7 @@ resource "aws_security_group" "batch_compute_environment" {
     to_port     = 0
     protocol    = "-1"  # すべてのプロトコル
     cidr_blocks = ["0.0.0.0/0"]  # すべての送信先
-    description = "すべての送信トラフィックを許可"
+    description = "Allow all outbound traffic"
   }
   
   # 注: 必要に応じて特定のポートへのingressルールを追加可能
@@ -370,7 +301,7 @@ resource "aws_security_group" "batch_compute_environment" {
 # Fargateタスクの実行に必要なECS実行ロール（コンテナ起動時に使用）
 resource "aws_iam_role" "ecs_execution_role" {
   name = "${local.name_prefix}-fargate-execution-role"
-  description = "FargateタスクがAWSサービスを呼び出すことを許可するロール"
+  description = "Role that allows Fargate tasks to call AWS services"
   path = "/service-role/"  # サービスロール用の標準パス
 
   # 重要: ECSタスクがこのロールを引き受けられるように設定

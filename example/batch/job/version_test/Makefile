@@ -1,9 +1,9 @@
 # AWS Batch ジョブ送信スクリプト実行用 Makefile
 
 # デフォルト設定値
-EC2_JOB_QUEUE = awa-batch-dev-ec2-high-priority
+EC2_JOB_QUEUE = awa-batch-dev-ec2
 EC2_JOB_DEFINITION = awa-batch-dev-ec2-sample1
-FARGATE_JOB_QUEUE = awa-batch-dev-fargate-high-priority
+FARGATE_JOB_QUEUE = awa-batch-dev-fargate 
 FARGATE_JOB_DEFINITION = awa-batch-dev-fargate-sample
 REGION = ap-northeast-1
 SHARE_ID = A1

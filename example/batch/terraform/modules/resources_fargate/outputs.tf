@@ -56,17 +56,13 @@ output "sample_job_definition_arn" {
 # ジョブキュー出力
 #----------------------------------------------------------------------
 
-output "high_priority_job_queue_arn" {
-  description = "Fargate高優先度ジョブキューのARN"
-  value       = aws_batch_job_queue.fargate_high_priority.arn
-  # 重要なジョブのサブミット時に参照するために使用
+output "job_queue_arn" { # 出力名を変更
+  description = "FargateジョブキューのARN" # 説明を変更
+  value       = aws_batch_job_queue.fargate_queue.arn # main.tf で変更したリソース名を参照
+  # ジョブのサブミット時に参照するために使用
 }
 
-output "low_priority_job_queue_arn" {
-  description = "Fargateスポット低優先度ジョブキューのARN"
-  value       = aws_batch_job_queue.fargate_low_priority.arn
-  # コスト効率重視のジョブのサブミット時に参照するために使用
-}
+# 低優先度ジョブキューの出力は削除しました
 
 # コンピューティング環境出力
 #----------------------------------------------------------------------
@@ -75,10 +71,4 @@ output "fargate_compute_environment_arn" {
   description = "Fargateコンピューティング環境のARN"
   value       = aws_batch_compute_environment.fargate.arn
   # 標準Fargate環境を参照するために使用
-}
-
-output "fargate_spot_compute_environment_arn" {
-  description = "Fargate Spotコンピューティング環境のARN"
-  value       = aws_batch_compute_environment.fargate_spot.arn
-  # Fargate Spot環境を参照するために使用
 }

@@ -7,7 +7,7 @@ variable "aws_region" {
 variable "environment" {
   description = "Environment name (e.g., dev, staging, prod)"
   type        = string
-  default     = "dev"
+  default     = "testing"
 }
 
 variable "project_name" {
@@ -45,29 +45,34 @@ variable "container_image" {
   type        = string
 }
 
+variable "instance_types" {
+  description = "EC2 instance types to use in the compute environment"
+  type        = list(string)
+  default     = ["m4.large"]
+}
+
 variable "max_vcpus" {
   description = "Maximum number of vCPUs in the compute environment"
   type        = number
   default     = 4
 }
 
-# Fargate固有の設定
-variable "fargate_vcpu" {
-  description = "The number of vCPUs to reserve for the Fargate container (0.25, 0.5, 1, 2, 4, 8, or 16)"
+variable "min_vcpus" {
+  description = "Minimum number of vCPUs in the compute environment"
   type        = number
-  default     = 1
-}
-
-variable "fargate_memory" {
-  description = "The amount of memory (in MiB) to reserve for the Fargate container (512, 1024, 2048, 3072, 4096, etc.)"
-  type        = number
-  default     = 2048
+  default     = 0
 }
 
 variable "common_env_var_value" {
   description = "Value for the common environment variable 'key'"
   type        = string
-  default     = "dev-value"
+  default     = "testing-value"
+}
+
+variable "desired_vcpus" {
+  description = "Desired number of vCPUs in the compute environment"
+  type        = number
+  default     = 0
 }
 
 # Slack通知設定

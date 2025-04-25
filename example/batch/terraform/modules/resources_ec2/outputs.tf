@@ -26,11 +26,11 @@ output "sample_job_definition_arn" {
   value       = aws_batch_job_definition.sample1.arn
 }
 
-# 高優先度ジョブキューARN
-# 高優先度（オンデマンド）ジョブキューのARNを出力
-output "high_priority_job_queue_arn" {
-  description = "ARN of the EC2 high priority job queue"
-  value       = module.batch.job_queues["high_priority"].arn
+# ジョブキューARN
+# オンデマンド環境を使用するジョブキューのARNを出力
+output "job_queue_arn" { # 出力名を変更
+  description = "ARN of the EC2 job queue" # 説明を変更
+  value       = module.batch.job_queues["on_demand_queue"].arn # main.tf で変更したキー名を参照
 }
 
 # オンデマンドコンピュート環境ARN

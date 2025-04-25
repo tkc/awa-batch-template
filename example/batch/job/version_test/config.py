@@ -19,18 +19,16 @@ NAME_PREFIX = f"{PROJECT_NAME}-{ENV}"
 
 # EC2関連の設定
 EC2_CONFIG = {
-    "job_queue": f"{NAME_PREFIX}-ec2-high-priority",
+    "job_queue": f"{NAME_PREFIX}-ec2",
     "job_definition": f"{NAME_PREFIX}-ec2-sample1",
-    "spot_job_queue": f"{NAME_PREFIX}-ec2-low-priority",
-    "array_job_queue": f"{NAME_PREFIX}-ec2-high-priority",
+    "array_job_queue": f"{NAME_PREFIX}-ec2", 
 }
 
 # Fargate関連の設定
 FARGATE_CONFIG = {
-    "job_queue": f"{NAME_PREFIX}-fargate-high-priority",
+    "job_queue": f"{NAME_PREFIX}-fargate", # 
     "job_definition": f"{NAME_PREFIX}-fargate-sample",
-    "spot_job_queue": f"{NAME_PREFIX}-fargate-low-priority",
-    "array_job_queue": f"{NAME_PREFIX}-fargate-high-priority",
+    "array_job_queue": f"{NAME_PREFIX}-fargate",
 }
 
 # デフォルトのリソース設定

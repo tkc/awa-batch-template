@@ -7,7 +7,7 @@ variable "aws_region" {
 variable "environment" {
   description = "Environment name (e.g., dev, staging, prod)"
   type        = string
-  default     = "dev"
+  default     = "testing"
 }
 
 variable "project_name" {
@@ -67,7 +67,7 @@ variable "fargate_memory" {
 variable "common_env_var_value" {
   description = "Value for the common environment variable 'key'"
   type        = string
-  default     = "dev-value"
+  default     = "testing-value"
 }
 
 # Slack通知設定

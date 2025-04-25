@@ -74,3 +74,11 @@ variable "desired_vcpus" {
   type        = number
   default     = 0
 }
+
+# Slack通知設定
+variable "slack_webhook_url" {
+  description = "Slack通知用のWebhook URL"
+  type        = string
+  default     = ""
+  sensitive   = true
+}

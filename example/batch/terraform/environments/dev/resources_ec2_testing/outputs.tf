@@ -18,7 +18,7 @@ output "sample_job_definition_arn" {
   value       = module.resources.sample_job_definition_arn
 }
 
-output "job_queue_arn" { # 出力名を変更
-  description = "ARN of the job queue" # 説明を変更
-  value       = module.resources.job_queue_arn # モジュールの正しい出力名を参照
+output "high_priority_job_queue_arn" {
+  description = "ARN of the high priority job queue"
+  value       = module.resources.high_priority_job_queue_arn
 }
