@@ -36,7 +36,7 @@ locals {
 # Batchジョブからのログを保存するためのロググループを作成
 resource "aws_cloudwatch_log_group" "batch_logs" {
   name              = "/aws/batch/${local.name_prefix}-fargate"  # バッチログのパス規則に従った名前
-  retention_in_days = var.log_retention_days                     # ログの保持期間（日数）
+  retention_in_days = var.log_retention_days                     # ログの保持期間（日数）。デフォルト: 365日。監査要件に応じて必要期間の確認が必要
   kms_key_id        = var.kms_key_arn                           # ログの暗号化に使用するKMSキー（オプション）
 
   tags = local.common_tags
@@ -230,7 +230,7 @@ resource "aws_batch_job_definition" "fargate_sample" {
     
     # Fargate用のネットワーク設定
     networkConfiguration = {
-      assignPublicIp = var.assign_public_ip ? "ENABLED" : "DISABLED"  # パブリックIP割り当てオプション
+      assignPublicIp = "DISABLED"  # プライベートサブネット + NAT Gateway構成のため不要
     }
     
     # Fargateプラットフォームバージョン設定

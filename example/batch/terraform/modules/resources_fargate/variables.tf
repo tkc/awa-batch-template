@@ -91,7 +91,7 @@ variable "common_env_var_value" {
 variable "log_retention_days" {
   description = "CloudWatch Logsのログ保持期間（日数）"
   type        = number
-  default     = 14
+  default     = 365  # デフォルト: 1年間保持。監査要件やコンプライアンス要件に応じて必要期間の確認が必要
 }
 
 variable "kms_key_arn" {
@@ -166,11 +166,7 @@ variable "container_log_secrets" {
   default     = []
 }
 
-variable "assign_public_ip" {
-  description = "FargateコンテナにパブリックIPを割り当てるかどうか"
-  type        = bool
-  default     = false
-}
+
 
 # Slack 通知用の Webhook URL
 variable "slack_webhook_url" {
