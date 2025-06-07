@@ -49,6 +49,17 @@ locals {
   }
 }
 
+# 複数のFargateイメージ（resources_fargate_X、resources_fargate_Y など）を使用する場合の注意点:
+# - IAM権限については、セキュリティ上は各イメージ用に個別のIAMロールを作成することが望ましい
+# - 各イメージが同じ権限セットを必要とする場合は共通のIAMロールを使用することも可能
+# - ただし、将来の拡張性と運用の明確さを考慮すると、イメージごとに別々のIAMロールを定義することを推奨
+# - CloudWatchログは必ず別々に設定し、各イメージからのログを明確に分離する
+# - 例: 
+#   - イメージ固有のIAMロール: fargate_role_x, fargate_role_y
+#   - イメージ固有のCloudWatchロググループ: /ecs/fargate-x, /ecs/fargate-y
+# 
+# このアプローチにより、セキュリティと運用の両面で柔軟性と透明性が向上します
+
 module "resources_fargate" {
   source = "../../../modules/resources_fargate"
 

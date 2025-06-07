@@ -426,6 +426,45 @@ resource "aws_flow_log" "main" {
 # - コスト削減（NAT Gatewayのデータ転送料金を回避）
 #------------------------------------------------------------------------------
 
+# VPCエンドポイント用セキュリティグループ
+# Interface型VPCエンドポイントを将来追加する場合に使用します。
+# Gateway型のS3エンドポイントには不要ですが、ECR、CloudWatch Logs等の
+# Interface型エンドポイントには必要です。
+resource "aws_security_group" "vpc_endpoints" {
+  name        = "${local.name_prefix}-vpc-endpoints-sg"
+  description = "Security group for VPC endpoints"
+  vpc_id      = aws_vpc.main.id
+
+  # HTTPS通信を許可（Interface型エンドポイントはHTTPS経由でアクセス）
+  ingress {
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = [aws_vpc.main.cidr_block]  # VPC内からのみアクセス可能
+    description = "Allow HTTPS from VPC"
+  }
+
+  # すべてのアウトバウンド通信を許可
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow all outbound traffic"
+  }
+
+  tags = merge(
+    local.common_tags,
+    {
+      Name = "${local.name_prefix}-vpc-endpoints-sg"
+    }
+  )
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
 # S3 VPCエンドポイント（Gateway型）
 # Gateway型エンドポイントの特徴：
 # - 完全無料（作成・使用ともに料金なし）
