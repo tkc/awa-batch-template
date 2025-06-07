@@ -444,13 +444,15 @@ resource "aws_security_group" "vpc_endpoints" {
     description = "Allow HTTPS from VPC"
   }
 
-  # すべてのアウトバウンド通信を許可
+  # Google APIs へのHTTPS通信のみ許可
+  # 注意: Google APIsのIPアドレスは動的に変更されるため、
+  # 0.0.0.0/0 を使用していますが、ポートは443に制限しています
   egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
-    description = "Allow all outbound traffic"
+    description = "Allow HTTPS to Google APIs"
   }
 
   tags = merge(
